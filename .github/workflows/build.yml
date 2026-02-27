@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
-          sudo pacman -S archiso
+          pacman -Sy --noconfirm archiso
       - name: Copy Releng profile
         run: |
           cp -r /usr/share/archiso/configs/releng/ ~/${{ github.repository }}
@@ -60,7 +60,7 @@ jobs:
         working-directory: ~/${{ github.repository }}
       - name: Build ISO
         run: |
-          sudo mkarchiso -v -w ~/work -o ~/out .
+          mkarchiso -v -w ~/work -o ~/out .
         working-directory: ~/${{ github.repository }}
       - name: Upload ISO
         uses: actions/upload-artifact@v4
