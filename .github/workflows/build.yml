@@ -67,5 +67,5 @@ jobs:
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.repository }}-iso
+          name: ${{ github.event.repository.name }}-iso
           path: /root/out/*.iso
