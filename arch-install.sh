@@ -2,7 +2,6 @@
 set -euo pipefail
 
 # Variables
-DISK=""
 EFI_SIZE=
 SWAP_SIZE=
 
@@ -15,6 +14,7 @@ USERNAME=""
 PASSWORD=""
 
 # ==== 1. Partition Disk ====
+DISK=$(lsblk -dpno NAME,TYPE | awk '$2=="disk" {print $1; exit}')
 parted $DISK --script mklabel gpt
 
 EFI_PART="${DISK}1"
