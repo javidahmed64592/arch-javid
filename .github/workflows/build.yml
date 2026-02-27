@@ -34,7 +34,7 @@ jobs:
           pacman -Sy --noconfirm archiso
       - name: Copy Releng profile
         run: |
-          cp -r /usr/share/archiso/configs/releng/ ~/${{ github.event.repository.name }}
+          cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
       - name: Prepare build directory
         run: |
           cp $GITHUB_WORKSPACE/arch-install.sh airootfs/root/
@@ -57,13 +57,13 @@ jobs:
           cp $GITHUB_WORKSPACE/arch-install.service airootfs/etc/systemd/system/
 
           ln -s /etc/systemd/system/arch-install.service airootfs/etc/systemd/system/multi-user.target.wants/arch-install.service
-        working-directory: ~/${{ github.event.repository.name }}
+        working-directory: /root/${{ github.event.repository.name }}
       - name: Build ISO
         run: |
-          mkarchiso -v -w ~/work -o ~/out .
-        working-directory: ~/${{ github.event.repository.name }}
+          mkarchiso -v -w /root/work -o /root/out .
+        working-directory: /root/${{ github.event.repository.name }}
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.repository }}-iso
-          path: ~/out/*.iso
+          path: /root/out/*.iso
