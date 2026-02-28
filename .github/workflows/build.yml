@@ -18,7 +18,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── 0. Compute cache keys ────────────────────────────────────────────────
+      - name: Compute cache keys
+        id: cache-keys
+        run: |
+          echo "week=$(date +%Y-W%V)" >> $GITHUB_OUTPUT
+
+          # Calamares pkgver from the AUR PKGBUILD — cache is only invalidated
+          # when upstream actually releases a new version.
+          PKGVER=$(curl -fsSL \
+            "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=calamares" \
+            | grep '^pkgver=' | cut -d= -f2)
+          echo "calamares-pkgver=${PKGVER}" >> $GITHUB_OUTPUT
+
       # ── 1. Host tooling ──────────────────────────────────────────────────────
+      - name: Restore pacman package cache
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/pacman/pkg
+          key: pacman-${{ hashFiles('packages.x86_64') }}-${{ steps.cache-keys.outputs.week }}
+          restore-keys: |
+            pacman-${{ hashFiles('packages.x86_64') }}-
+            pacman-
+
       - name: Install build dependencies
         run: |
           pacman -Sy --noconfirm archiso base-devel git
@@ -29,7 +51,15 @@ jobs:
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
 
       # ── 3. Build Calamares from AUR ────────────────────────────────────────────
+      - name: Restore Calamares local repo cache
+        id: calamares-cache
+        uses: actions/cache@v4
+        with:
+          path: /root/localrepo
+          key: calamares-${{ steps.cache-keys.outputs.calamares-pkgver }}
+
       - name: Build Calamares from AUR
+        if: steps.calamares-cache.outputs.cache-hit != 'true'
         run: |
           # Create a non-root build user with passwordless sudo
           useradd -m builder
@@ -39,7 +69,7 @@ jobs:
           su builder -c "git clone --depth=1 https://aur.archlinux.org/calamares.git /home/builder/calamares"
 
           # Build, pulling all official-repo deps automatically (-s),
-          # without prompting (-r removes make-deps after build, --noconfirm skips prompts)
+          # without prompting (--noconfirm skips prompts)
           su builder -c "cd /home/builder/calamares && makepkg -s --noconfirm"
 
           # Collect the package and create a local repo database
@@ -49,9 +79,6 @@ jobs:
 
       # ── 4. Wire local repo into profile pacman.conf ─────────────────────────
       - name: Register local package repository
-        # Prepend [localrepo] before [core] so it takes priority.
-        # SigLevel is Optional TrustAll because we built the package locally
-        # and have no GPG key to sign it with.
         run: |
           sed -i '/^\[core\]/i [localrepo]\nSigLevel = Optional TrustAll\nServer = file:\/\/\/root\/localrepo\n' pacman.conf
         working-directory: /root/${{ github.event.repository.name }}
@@ -71,11 +98,6 @@ jobs:
 
       # ── 7. airootfs overlay ──────────────────────────────────────────────────
       - name: Merge airootfs overlay
-        # Copies our airootfs/ tree on top of the releng airootfs/ so that:
-        #   - etc/sddm.conf.d/autologin.conf  → SDDM auto-logins liveuser
-        #   - etc/sudoers.d/liveuser          → passwordless calamares launch
-        #   - root/customize_airootfs.sh      → run by mkarchiso in chroot to
-        #                                       create liveuser + KDE autostart
         run: |
           cp -r $GITHUB_WORKSPACE/airootfs/. airootfs/
 
@@ -86,10 +108,6 @@ jobs:
 
       # ── 8. Systemd services in the live environment ──────────────────────────
       - name: Enable live-session services (SDDM + NetworkManager)
-        # Wire sddm as the display-manager and start NetworkManager so the
-        # live desktop has networking without any manual intervention.
-        # These symlinks only affect the live ISO; services in the installed
-        # system are handled by the Calamares services-systemd module.
         run: |
           mkdir -p airootfs/etc/systemd/system/multi-user.target.wants
 
