@@ -68,9 +68,17 @@ jobs:
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
 
+          # Extra build deps needed by Calamares modules
+          pacman -S --noconfirm --needed \
+            boost boost-libs libpwquality python-jsonschema python-yaml
+
           # ── calamares ──
           su builder -c "git clone --depth=1 https://aur.archlinux.org/calamares.git /home/builder/calamares"
           su builder -c "cd /home/builder/calamares && makepkg -s --noconfirm"
+
+          # Verify all expected modules were built
+          echo "── Modules in calamares package ──"
+          tar tf /home/builder/calamares/*.pkg.tar.zst | grep 'usr/lib/calamares/modules/' | head -40
 
           # ── arch-update (provides arch-update.timer + arch-update-tray.service) ──
           su builder -c "git clone --depth=1 https://aur.archlinux.org/arch-update.git /home/builder/arch-update"
