@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# customize_airootfs.sh
 # Run by mkarchiso inside the airootfs chroot during ISO build.
 # Sets up the live user and Calamares autostart for the KDE/Wayland session.
 set -euo pipefail
@@ -29,7 +28,6 @@ X-KDE-autostart-phase=2
 EOF
 
 # ── 3. Set KDE/Wayland as the preferred session env ──────────────────────────
-# KDE 6 defaults to Wayland; ensure no X11 override is set
 mkdir -p /home/liveuser/.config
 cat > /home/liveuser/.config/kwinrc << 'EOF'
 [Windows]
