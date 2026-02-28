@@ -24,12 +24,15 @@ jobs:
         run: |
           echo "week=$(date +%Y-W%V)" >> $GITHUB_OUTPUT
 
-          # Calamares pkgver from the AUR PKGBUILD — cache is only invalidated
-          # when upstream actually releases a new version.
-          PKGVER=$(curl -fsSL \
-            "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=calamares" \
-            | grep '^pkgver=' | cut -d= -f2)
-          echo "calamares-pkgver=${PKGVER}" >> $GITHUB_OUTPUT
+          # Fetch pkgver for each AUR package — cache invalidates only on a
+          # new upstream release of either package.
+          fetch_pkgver() {
+            curl -fsSL "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=$1" \
+              | grep '^pkgver=' | cut -d= -f2
+          }
+          CALAMARES_VER=$(fetch_pkgver calamares)
+          ARCH_UPDATE_VER=$(fetch_pkgver arch-update)
+          echo "aur-pkgvers=${CALAMARES_VER}-${ARCH_UPDATE_VER}" >> $GITHUB_OUTPUT
 
       # ── 1. Host tooling ──────────────────────────────────────────────────────
       - name: Restore pacman package cache
@@ -50,31 +53,33 @@ jobs:
         run: |
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
 
-      # ── 3. Build Calamares from AUR ────────────────────────────────────────────
-      - name: Restore Calamares local repo cache
+      # ── 3. Build AUR packages (Calamares + arch-update) ─────────────────────
+      - name: Compute AUR cache key
         id: calamares-cache
         uses: actions/cache@v4
         with:
           path: /root/localrepo
-          key: calamares-${{ steps.cache-keys.outputs.calamares-pkgver }}
+          key: aur-${{ steps.cache-keys.outputs.aur-pkgvers }}
 
-      - name: Build Calamares from AUR
+      - name: Build AUR packages
         if: steps.calamares-cache.outputs.cache-hit != 'true'
         run: |
           # Create a non-root build user with passwordless sudo
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
 
-          # Clone the calamares PKGBUILD from the AUR
+          # ── calamares ──
           su builder -c "git clone --depth=1 https://aur.archlinux.org/calamares.git /home/builder/calamares"
-
-          # Build, pulling all official-repo deps automatically (-s),
-          # without prompting (--noconfirm skips prompts)
           su builder -c "cd /home/builder/calamares && makepkg -s --noconfirm"
 
-          # Collect the package and create a local repo database
+          # ── arch-update (provides arch-update.timer + arch-update-tray.service) ──
+          su builder -c "git clone --depth=1 https://aur.archlinux.org/arch-update.git /home/builder/arch-update"
+          su builder -c "cd /home/builder/arch-update && makepkg -s --noconfirm"
+
+          # Collect all built packages into the local repo database
           mkdir -p /root/localrepo
           cp /home/builder/calamares/*.pkg.tar.zst /root/localrepo/
+          cp /home/builder/arch-update/*.pkg.tar.zst /root/localrepo/
           repo-add /root/localrepo/localrepo.db.tar.gz /root/localrepo/*.pkg.tar.zst
 
       # ── 4. Wire local repo into profile pacman.conf ─────────────────────────
