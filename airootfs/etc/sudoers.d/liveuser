@@ -1,0 +1,2 @@
+# Allow liveuser to launch Calamares (the graphical installer) without a password
+liveuser ALL=(ALL) NOPASSWD: /usr/bin/calamares

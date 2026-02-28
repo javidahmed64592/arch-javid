@@ -1,0 +1,33 @@
+---
+componentName: arch-javid
+
+# Strings shown throughout the installer
+strings:
+    productName: Arch Linux (arch-javid)
+    shortProductName: arch-javid
+    version: "0.0.1"
+    shortVersion: "0.0.1"
+    versionedName: Arch Linux
+    shortVersionedName: arch-javid
+    bootloaderEntryName: arch-javid
+    productUrl: https://github.com/javid/arch-javid
+    supportUrl: https://github.com/javid/arch-javid/issues
+    knownIssuesUrl: https://github.com/javid/arch-javid/issues
+    releaseNotesUrl: https://github.com/javid/arch-javid
+
+# Images (relative to this branding directory)
+images:
+    productLogo: "logo.png"
+    productIcon: "logo.png"
+    productWelcome: "languages.png"
+
+# QML slideshow shown while install is running (file in this directory)
+slideshow: "show.qml"
+slideshowAPI: 2
+
+# Colours used in the welcome screen
+style:
+    sidebarBackground:    "#292F34"
+    sidebarText:          "#FFFFFF"
+    sidebarTextSelect:    "#1793D1"
+    sidebarTextHighlight: "#1793D1"

@@ -9,19 +9,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  # Disk partitions
-  EFI_SIZE: 1024
-  SWAP_SIZE: 4096
-  # Timezone and locale
-  LOCAL_ZONE: Europe/London
-  LOCALE: en_GB.UTF-8
-  KEYMAP: uk
-  # System configuration
-  HOSTNAME: arch-javid
-  USERNAME: javid
-  PASSWORD: password
-
 jobs:
   build-iso:
     runs-on: ubuntu-latest
@@ -30,41 +17,73 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+
+      # ── 1. Host tooling ──────────────────────────────────────────────────────
+      - name: Install build dependencies
         run: |
           pacman -Sy --noconfirm archiso
+
+      # ── 2. Base profile ──────────────────────────────────────────────────────
       - name: Copy Releng profile
         run: |
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
-      - name: Prepare build directory
+
+      # ── 3. Packages ──────────────────────────────────────────────────────────
+      - name: Add KDE / Wayland / Calamares packages
         run: |
-          cp $GITHUB_WORKSPACE/arch-install.sh airootfs/root/
-          sed -i \
-            -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
-            -e 's|^SWAP_SIZE=.*|SWAP_SIZE=${{ env.SWAP_SIZE }}|' \
-            -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
-            -e 's|^LOCALE=.*|LOCALE="${{ env.LOCALE }}"|' \
-            -e 's|^KEYMAP=.*|KEYMAP="${{ env.KEYMAP }}"|' \
-            -e 's|^HOSTNAME=.*|HOSTNAME="${{ env.HOSTNAME }}"|' \
-            -e 's|^USERNAME=.*|USERNAME="${{ env.USERNAME }}"|' \
-            -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
-            airootfs/root/arch-install.sh
-
-          chmod +x airootfs/root/arch-install.sh
-          chown root:root airootfs/root/arch-install.sh
-
-          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/arch-install.sh"\]="0:0:755"|' profiledef.sh
-
-          mkdir -p airootfs/etc/systemd/system/
-          cp $GITHUB_WORKSPACE/arch-install.service airootfs/etc/systemd/system/
-
-          ln -s /etc/systemd/system/arch-install.service airootfs/etc/systemd/system/multi-user.target.wants/arch-install.service
+          cat $GITHUB_WORKSPACE/packages.x86_64 >> packages.x86_64
         working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 4. Calamares configuration ───────────────────────────────────────────
+      - name: Install Calamares configuration
+        run: |
+          mkdir -p airootfs/etc/calamares
+          cp -r $GITHUB_WORKSPACE/calamares/* airootfs/etc/calamares/
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 5. airootfs overlay ──────────────────────────────────────────────────
+      - name: Merge airootfs overlay
+        # Copies our airootfs/ tree on top of the releng airootfs/ so that:
+        #   - etc/sddm.conf.d/autologin.conf  → SDDM auto-logins liveuser
+        #   - etc/sudoers.d/liveuser          → passwordless calamares launch
+        #   - root/customize_airootfs.sh      → run by mkarchiso in chroot to
+        #                                       create liveuser + KDE autostart
+        run: |
+          cp -r $GITHUB_WORKSPACE/airootfs/. airootfs/
+
+          # Hard permissions required by sudo and the shell script
+          chmod 755 airootfs/root/customize_airootfs.sh
+          chmod 440 airootfs/etc/sudoers.d/liveuser
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 6. Systemd services in the live environment ──────────────────────────
+      - name: Enable SDDM for the live session
+        # Wire sddm.service as the display-manager so Plasma/Wayland starts
+        # on boot of the live ISO (autologin via sddm.conf.d/autologin.conf).
+        run: |
+          mkdir -p airootfs/etc/systemd/system/multi-user.target.wants
+          ln -sf /usr/lib/systemd/system/sddm.service \
+            airootfs/etc/systemd/system/display-manager.service
+          ln -sf /usr/lib/systemd/system/sddm.service \
+            airootfs/etc/systemd/system/multi-user.target.wants/sddm.service
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 7. profiledef.sh file permissions ───────────────────────────────────
+      - name: Register new file permissions in profiledef.sh
+        run: |
+          sed -i \
+            's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/customize_airootfs.sh"\]="0:0:755"\n  \["/etc/sudoers.d/liveuser"\]="0:0:440"|' \
+            profiledef.sh
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 8. Build ─────────────────────────────────────────────────────────────
       - name: Build ISO
         run: |
           mkarchiso -v -w /root/work -o /root/out .
         working-directory: /root/${{ github.event.repository.name }}
-      - name: Upload ISO
+
+      # ── 9. Artifact ──────────────────────────────────────────────────────────
+      - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.repository.name }}-iso
