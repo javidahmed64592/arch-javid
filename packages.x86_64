@@ -34,6 +34,11 @@ wireplumber
 # ── Networking ────────────────────────────────────────────────────────────────
 networkmanager
 network-manager-applet
+firewalld
+
+# ── Bluetooth ─────────────────────────────────────────────────────────────────
+bluez
+bluez-utils
 
 # ── Fonts ─────────────────────────────────────────────────────────────────────
 noto-fonts
@@ -44,3 +49,6 @@ calamares
 
 # ── Partitioning backend for Calamares ────────────────────────────────────────
 kpmcore
+
+# ── System update notifier (AUR) ──────────────────────────────────────────────
+arch-update
