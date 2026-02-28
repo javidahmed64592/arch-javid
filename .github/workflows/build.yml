@@ -21,27 +21,55 @@ jobs:
       # ── 1. Host tooling ──────────────────────────────────────────────────────
       - name: Install build dependencies
         run: |
-          pacman -Sy --noconfirm archiso
+          pacman -Sy --noconfirm archiso base-devel git
 
       # ── 2. Base profile ──────────────────────────────────────────────────────
       - name: Copy Releng profile
         run: |
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
 
-      # ── 3. Packages ──────────────────────────────────────────────────────────
+      # ── 3. Build Calamares from AUR ────────────────────────────────────────────
+      - name: Build Calamares from AUR
+        run: |
+          # Create a non-root build user with passwordless sudo
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+
+          # Clone the calamares PKGBUILD from the AUR
+          su builder -c "git clone --depth=1 https://aur.archlinux.org/calamares.git /home/builder/calamares"
+
+          # Build, pulling all official-repo deps automatically (-s),
+          # without prompting (-r removes make-deps after build, --noconfirm skips prompts)
+          su builder -c "cd /home/builder/calamares && makepkg -s --noconfirm"
+
+          # Collect the package and create a local repo database
+          mkdir -p /root/localrepo
+          cp /home/builder/calamares/*.pkg.tar.zst /root/localrepo/
+          repo-add /root/localrepo/localrepo.db.tar.gz /root/localrepo/*.pkg.tar.zst
+
+      # ── 4. Wire local repo into profile pacman.conf ─────────────────────────
+      - name: Register local package repository
+        # Prepend [localrepo] before [core] so it takes priority.
+        # SigLevel is Optional TrustAll because we built the package locally
+        # and have no GPG key to sign it with.
+        run: |
+          sed -i '/^\[core\]/i [localrepo]\nSigLevel = Optional TrustAll\nServer = file:\/\/\/root\/localrepo\n' pacman.conf
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 5. Packages ──────────────────────────────────────────────────────────
       - name: Add KDE / Wayland / Calamares packages
         run: |
           cat $GITHUB_WORKSPACE/packages.x86_64 >> packages.x86_64
         working-directory: /root/${{ github.event.repository.name }}
 
-      # ── 4. Calamares configuration ───────────────────────────────────────────
+      # ── 6. Calamares configuration ───────────────────────────────────────────
       - name: Install Calamares configuration
         run: |
           mkdir -p airootfs/etc/calamares
           cp -r $GITHUB_WORKSPACE/calamares/* airootfs/etc/calamares/
         working-directory: /root/${{ github.event.repository.name }}
 
-      # ── 5. airootfs overlay ──────────────────────────────────────────────────
+      # ── 7. airootfs overlay ──────────────────────────────────────────────────
       - name: Merge airootfs overlay
         # Copies our airootfs/ tree on top of the releng airootfs/ so that:
         #   - etc/sddm.conf.d/autologin.conf  → SDDM auto-logins liveuser
@@ -56,7 +84,7 @@ jobs:
           chmod 440 airootfs/etc/sudoers.d/liveuser
         working-directory: /root/${{ github.event.repository.name }}
 
-      # ── 6. Systemd services in the live environment ──────────────────────────
+      # ── 8. Systemd services in the live environment ──────────────────────────
       - name: Enable SDDM for the live session
         # Wire sddm.service as the display-manager so Plasma/Wayland starts
         # on boot of the live ISO (autologin via sddm.conf.d/autologin.conf).
@@ -68,7 +96,7 @@ jobs:
             airootfs/etc/systemd/system/multi-user.target.wants/sddm.service
         working-directory: /root/${{ github.event.repository.name }}
 
-      # ── 7. profiledef.sh file permissions ───────────────────────────────────
+      # ── 9. profiledef.sh file permissions ───────────────────────────────────
       - name: Register new file permissions in profiledef.sh
         run: |
           sed -i \
@@ -76,13 +104,13 @@ jobs:
             profiledef.sh
         working-directory: /root/${{ github.event.repository.name }}
 
-      # ── 8. Build ─────────────────────────────────────────────────────────────
+      # ── 10. Build ────────────────────────────────────────────────────────────
       - name: Build ISO
         run: |
           mkarchiso -v -w /root/work -o /root/out .
         working-directory: /root/${{ github.event.repository.name }}
 
-      # ── 9. Artifact ──────────────────────────────────────────────────────────
+      # ── 11. Artifact ─────────────────────────────────────────────────────────
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
