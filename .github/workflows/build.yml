@@ -104,13 +104,14 @@ jobs:
           su builder -c "cd /home/builder/calamares && makepkg -s --noconfirm"
 
           # Verify the modules we need are present in the built package
-          echo "── Modules in calamares package ──"
-          tar tf /home/builder/calamares/*.pkg.tar.zst | grep 'usr/lib/calamares/modules/' | sort
+          CALA_PKG=$(ls /home/builder/calamares/calamares-[0-9]*.pkg.tar.zst)
+          echo "── Modules in $CALA_PKG ──"
+          tar tf "$CALA_PKG" | grep 'usr/lib/calamares/modules/' | sort
 
           NEEDED="mount unpackfs fstab bootloader hwclock services-systemd localecfg networkcfg displaymanager packages"
           MISSING=""
           for mod in $NEEDED; do
-            if ! tar tf /home/builder/calamares/*.pkg.tar.zst | grep -q "usr/lib/calamares/modules/${mod}/"; then
+            if ! tar tf "$CALA_PKG" | grep -q "usr/lib/calamares/modules/${mod}/"; then
               MISSING="$MISSING $mod"
             fi
           done
