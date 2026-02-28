@@ -46,6 +46,7 @@ ttf-liberation
 
 # ── Calamares graphical installer ─────────────────────────────────────────────
 calamares
+python
 
 # ── Partitioning backend for Calamares ────────────────────────────────────────
 kpmcore
