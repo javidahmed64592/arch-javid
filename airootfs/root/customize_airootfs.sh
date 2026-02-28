@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run by mkarchiso inside the airootfs chroot during ISO build.
-# Sets up the live user and Calamares autostart for the KDE/Wayland session.
+
 set -euo pipefail
 
 # ── 1. Create the live user ──────────────────────────────────────────────────
