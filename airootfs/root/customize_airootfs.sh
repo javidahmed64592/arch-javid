@@ -20,7 +20,7 @@ cat > /home/liveuser/.config/autostart/calamares.desktop << 'EOF'
 Type=Application
 Name=Install Arch Linux
 Comment=Launch the graphical Arch Linux installer
-Exec=sudo -E calamares
+Exec=sudo calamares
 Icon=calamares
 Terminal=false
 Categories=System;
