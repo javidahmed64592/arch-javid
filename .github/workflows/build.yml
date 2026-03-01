@@ -9,19 +9,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  # Disk partitions
-  EFI_SIZE: 1024
-  SWAP_SIZE: 4096
-  # Timezone and locale
-  LOCAL_ZONE: Europe/London
-  LOCALE: en_GB.UTF-8
-  KEYMAP: uk
-  # System configuration
-  HOSTNAME: arch-javid
-  USERNAME: javid
-  PASSWORD: password
-
 jobs:
   build-iso:
     runs-on: ubuntu-latest
@@ -30,41 +17,183 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+
+      # ── 0. Compute cache keys ────────────────────────────────────────────────
+      - name: Compute cache keys
+        id: cache-keys
         run: |
-          pacman -Sy --noconfirm archiso
+          echo "week=$(date +%Y-W%V)" >> $GITHUB_OUTPUT
+
+          # Fetch pkgver for each AUR package — cache invalidates only on a
+          # new upstream release of either package.
+          fetch_pkgver() {
+            curl -fsSL "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=$1" \
+              | grep '^pkgver=' | cut -d= -f2
+          }
+          CALAMARES_VER=$(fetch_pkgver calamares)
+          ARCH_UPDATE_VER=$(fetch_pkgver arch-update)
+          echo "aur-pkgvers=${CALAMARES_VER}-${ARCH_UPDATE_VER}" >> $GITHUB_OUTPUT
+
+      # ── 1. Host tooling ──────────────────────────────────────────────────────
+      - name: Restore pacman package cache
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/pacman/pkg
+          key: pacman-${{ hashFiles('packages.x86_64') }}-${{ steps.cache-keys.outputs.week }}
+          restore-keys: |
+            pacman-${{ hashFiles('packages.x86_64') }}-
+            pacman-
+
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm archiso base-devel git
+
+      # ── 2. Base profile ──────────────────────────────────────────────────────
       - name: Copy Releng profile
         run: |
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
-      - name: Prepare build directory
+
+      # ── 3. Build AUR packages (Calamares + arch-update) ─────────────────────
+      - name: Compute AUR cache key
+        id: calamares-cache
+        uses: actions/cache@v4
+        with:
+          path: /root/localrepo
+          key: aur-${{ steps.cache-keys.outputs.aur-pkgvers }}
+
+      - name: Build AUR packages
+        if: steps.calamares-cache.outputs.cache-hit != 'true'
         run: |
-          cp $GITHUB_WORKSPACE/arch-install.sh airootfs/root/
-          sed -i \
-            -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
-            -e 's|^SWAP_SIZE=.*|SWAP_SIZE=${{ env.SWAP_SIZE }}|' \
-            -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
-            -e 's|^LOCALE=.*|LOCALE="${{ env.LOCALE }}"|' \
-            -e 's|^KEYMAP=.*|KEYMAP="${{ env.KEYMAP }}"|' \
-            -e 's|^HOSTNAME=.*|HOSTNAME="${{ env.HOSTNAME }}"|' \
-            -e 's|^USERNAME=.*|USERNAME="${{ env.USERNAME }}"|' \
-            -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
-            airootfs/root/arch-install.sh
+          # Create a non-root build user with passwordless sudo
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
 
-          chmod +x airootfs/root/arch-install.sh
-          chown root:root airootfs/root/arch-install.sh
+          # Extra build deps for Calamares modules that CMake silently skips
+          # when absent:
+          #   boost          → Python bindings (localecfg, networkcfg,
+          #                    displaymanager, packages, unpackfs)
+          #   libpwquality   → users module password-quality checking
+          #   squashfs-tools → unpackfs (unsquashfs binary)
+          pacman -S --noconfirm --needed \
+            boost boost-libs libpwquality python-jsonschema python-yaml \
+            squashfs-tools
 
-          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/arch-install.sh"\]="0:0:755"|' profiledef.sh
+          # ── calamares ──
+          su builder -c "git clone --depth=1 https://aur.archlinux.org/calamares.git /home/builder/calamares"
 
-          mkdir -p airootfs/etc/systemd/system/
-          cp $GITHUB_WORKSPACE/arch-install.service airootfs/etc/systemd/system/
+          # The AUR PKGBUILD skips many modules we need (mount, unpackfs,
+          # fstab, bootloader, hwclock, services-systemd, localecfg,
+          # networkcfg, displaymanager, packages).  Remove every
+          # SKIP_MODULES reference so that ALL modules are built.
+          su builder -c "
+            cd /home/builder/calamares
+            echo '── Original PKGBUILD SKIP_MODULES / _skipped_modules lines ──'
+            grep -n -i 'skip.module\|_skipped' PKGBUILD || echo '(none found)'
 
-          ln -s /etc/systemd/system/arch-install.service airootfs/etc/systemd/system/multi-user.target.wants/arch-install.service
+            # Remove the _skipped_modules array definition (may span lines)
+            sed -i '/_skipped_modules=(/,/)/d' PKGBUILD
+
+            # Remove any -DSKIP_MODULES cmake flag
+            sed -i 's/-DSKIP_MODULES=[^ \"]*//' PKGBUILD
+            sed -i 's/-DSKIP_MODULES=\"[^\"]*\"//' PKGBUILD
+
+            echo '── Patched PKGBUILD cmake lines ──'
+            grep -n 'cmake\|SKIP' PKGBUILD || true
+          "
+
+          su builder -c "cd /home/builder/calamares && makepkg -s --noconfirm"
+
+          # Verify the modules we need are present in the built package
+          CALA_PKG=$(ls /home/builder/calamares/calamares-[0-9]*.pkg.tar.zst)
+          echo "── Modules in $CALA_PKG ──"
+          tar tf "$CALA_PKG" | grep 'usr/lib/calamares/modules/' | sort
+
+          NEEDED="mount unpackfs fstab bootloader hwclock services-systemd localecfg networkcfg displaymanager packages"
+          MISSING=""
+          for mod in $NEEDED; do
+            if ! tar tf "$CALA_PKG" | grep -q "usr/lib/calamares/modules/${mod}/"; then
+              MISSING="$MISSING $mod"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required Calamares modules:$MISSING"
+            exit 1
+          fi
+          echo "✓ All required modules present"
+
+          # ── arch-update (provides arch-update.timer + arch-update-tray.service) ──
+          su builder -c "git clone --depth=1 https://aur.archlinux.org/arch-update.git /home/builder/arch-update"
+          su builder -c "cd /home/builder/arch-update && makepkg -s --noconfirm"
+
+          # Collect all built packages into the local repo database
+          mkdir -p /root/localrepo
+          cp /home/builder/calamares/*.pkg.tar.zst /root/localrepo/
+          cp /home/builder/arch-update/*.pkg.tar.zst /root/localrepo/
+          repo-add /root/localrepo/localrepo.db.tar.gz /root/localrepo/*.pkg.tar.zst
+
+      # ── 4. Wire local repo into profile pacman.conf ─────────────────────────
+      - name: Register local package repository
+        run: |
+          sed -i '/^\[core\]/i [localrepo]\nSigLevel = Optional TrustAll\nServer = file:\/\/\/root\/localrepo\n' pacman.conf
         working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 5. Packages ──────────────────────────────────────────────────────────
+      - name: Add KDE / Wayland / Calamares packages
+        run: |
+          cat $GITHUB_WORKSPACE/packages.x86_64 >> packages.x86_64
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 6. Calamares configuration ───────────────────────────────────────────
+      - name: Install Calamares configuration
+        run: |
+          mkdir -p airootfs/etc/calamares
+          cp -r $GITHUB_WORKSPACE/calamares/* airootfs/etc/calamares/
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 7. airootfs overlay ──────────────────────────────────────────────────
+      - name: Merge airootfs overlay
+        run: |
+          cp -r $GITHUB_WORKSPACE/airootfs/. airootfs/
+
+          # Hard permissions required by sudo and the shell script
+          chmod 755 airootfs/root/customize_airootfs.sh
+          chmod 440 airootfs/etc/sudoers.d/liveuser
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 8. Systemd services in the live environment ──────────────────────────
+      - name: Enable live-session services (SDDM + NetworkManager)
+        run: |
+          mkdir -p airootfs/etc/systemd/system/multi-user.target.wants
+
+          # SDDM → autologin liveuser into KDE/Wayland
+          ln -sf /usr/lib/systemd/system/sddm.service \
+            airootfs/etc/systemd/system/display-manager.service
+          ln -sf /usr/lib/systemd/system/sddm.service \
+            airootfs/etc/systemd/system/multi-user.target.wants/sddm.service
+
+          # NetworkManager → live networking for Calamares and general use
+          ln -sf /usr/lib/systemd/system/NetworkManager.service \
+            airootfs/etc/systemd/system/multi-user.target.wants/NetworkManager.service
+          ln -sf /usr/lib/systemd/system/NetworkManager-dispatcher.service \
+            airootfs/etc/systemd/system/dbus-org.freedesktop.nm-dispatcher.service
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 9. profiledef.sh file permissions ───────────────────────────────────
+      - name: Register new file permissions in profiledef.sh
+        run: |
+          sed -i \
+            '/^file_permissions=(/,/^)/{s|^)|  ["/root/customize_airootfs.sh"]="0:0:755"\n  ["/etc/sudoers.d/liveuser"]="0:0:440"\n)|}' \
+            profiledef.sh
+        working-directory: /root/${{ github.event.repository.name }}
+
+      # ── 10. Build ────────────────────────────────────────────────────────────
       - name: Build ISO
         run: |
           mkarchiso -v -w /root/work -o /root/out .
         working-directory: /root/${{ github.event.repository.name }}
-      - name: Upload ISO
+
+      # ── 11. Artifact ─────────────────────────────────────────────────────────
+      - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.repository.name }}-iso

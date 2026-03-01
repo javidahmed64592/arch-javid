@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Extra packages included in the arch-javid live ISO
+# These are appended to the archiso releng packages.x86_64 during the build.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Display manager ───────────────────────────────────────────────────────────
+sddm
+
+# ── KDE Plasma 6 (Wayland) ────────────────────────────────────────────────────
+plasma-desktop
+plasma-nm
+plasma-pa
+plasma-workspace
+kwin
+kscreen
+breeze
+breeze-gtk
+kde-gtk-config
+xdg-desktop-portal-kde
+xdg-user-dirs
+plasma-systemmonitor
+
+# ── KDE applications ──────────────────────────────────────────────────────────
+konsole
+dolphin
+kate
+
+# ── Audio (PipeWire) ──────────────────────────────────────────────────────────
+pipewire
+pipewire-alsa
+pipewire-pulse
+wireplumber
+
+# ── Networking ────────────────────────────────────────────────────────────────
+networkmanager
+network-manager-applet
+firewalld
+
+# ── Bluetooth ─────────────────────────────────────────────────────────────────
+bluez
+bluez-utils
+
+# ── Fonts ─────────────────────────────────────────────────────────────────────
+noto-fonts
+ttf-liberation
+
+# ── Calamares graphical installer ─────────────────────────────────────────────
+calamares
+python
+
+# ── Partitioning backend for Calamares ────────────────────────────────────────
+kpmcore
+
+# ── System update notifier (AUR) ──────────────────────────────────────────────
+arch-update
