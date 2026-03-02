@@ -1,6 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
+# Colours
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Root directories
+SCRIPT_DIR="/root/scripts"
+
 # Variables
 EFI_SIZE=
 SWAP_SIZE=
@@ -15,46 +25,35 @@ PASSWORD=""
 
 # ==== 1. Partition Disk ====
 DISK=$(lsblk -dpno NAME,TYPE | awk '$2=="disk" {print $1; exit}')
-parted $DISK --script mklabel gpt
+echo -e "Detected disk: ${BLUE}${DISK}${NC}"
 
+if lsblk -dpno NAME,TYPE | grep -q "${DISK}part"; then
+  echo -e "${YELLOW}Disk already has partitions. Skipping partitioning.${NC}"
+else
+  echo -e "Partitioning disk with EFI size ${BLUE}${EFI_SIZE} MiB${NC} and swap size ${BLUE}${SWAP_SIZE} MiB${NC}..."
+  "${SCRIPT_DIR}/partition.sh" --disk ${DISK} --efi-size ${EFI_SIZE} --swap-size ${SWAP_SIZE}
+fi
+
+# ==== 2. Make filesystems ====
 EFI_PART="${DISK}1"
 SWAP_PART="${DISK}2"
 ROOT_PART="${DISK}3"
 
-# Calculate partition start/end in MiB
-EFI_START=1
-EFI_END=$((EFI_START + EFI_SIZE))
-SWAP_START=$EFI_END
-SWAP_END=$((SWAP_START + SWAP_SIZE))
-ROOT_START=$SWAP_END
-ROOT_END=100%
-
-# EFI system partition
-parted $DISK --script mkpart primary fat32 ${EFI_START}MiB ${EFI_END}MiB
-parted $DISK --script set 1 boot on
-
-# Swap partition
-parted $DISK --script mkpart primary linux-swap ${SWAP_START}MiB ${SWAP_END}MiB
-
-# Root partition
-parted $DISK --script mkpart primary ext4 ${ROOT_START}MiB ${ROOT_END}
-
-# ==== 2. Make filesystems ====
-mkfs.fat -F32 $EFI_PART
-mkswap $SWAP_PART
-swapon $SWAP_PART
-mkfs.ext4 $ROOT_PART
+echo -e "Creating filesystems on ${BLUE}${EFI_PART}${NC}, ${BLUE}${SWAP_PART}${NC}, and ${BLUE}${ROOT_PART}${NC}..."
+"${SCRIPT_DIR}/makefs.sh" --efi-part ${EFI_PART} --swap-part ${SWAP_PART} --root-part ${ROOT_PART}
 
 # ==== 3. Mount Partitions ====
-mount $ROOT_PART /mnt
-mkdir /mnt/boot
-mount $EFI_PART /mnt/boot
+echo -e "Mounting ${BLUE}${ROOT_PART}${NC} to ${BLUE}/mnt${NC} and ${BLUE}${EFI_PART}${NC} to ${BLUE}/mnt/boot${NC}..."
+"${SCRIPT_DIR}/mount.sh" --efi-part ${EFI_PART} --root-part ${ROOT_PART}
 
 # ==== 4. Install base system ====
-pacstrap /mnt base linux linux-firmware sudo nano intel-ucode networkmanager
+echo -e "Installing base system with packages from ${BLUE}packages.txt${NC}..."
+PACKAGES=$(grep -v '^\s*#' /root/packages.txt | grep -v '^\s*$' | tr '\n' ' ')
+pacstrap /mnt $PACKAGES
 
 # ==== 5. Generate fstab ====
-genfstab -U /mnt >> /mnt/etc/fstab
+echo -e "Generating ${BLUE}/etc/fstab${NC}..."
+"${SCRIPT_DIR}/fstab.sh"
 
 # ==== 6. Chroot and configure ====
 arch-chroot /mnt /bin/bash <<EOF
@@ -71,6 +70,9 @@ echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 # Network configuration
 echo ${HOSTNAME} > /etc/hostname
 systemctl enable NetworkManager
+
+# Enable display manager
+systemctl enable plasmalogin
 
 # Initramfs
 mkinitcpio -P linux
@@ -104,5 +106,5 @@ bootctl install
 EOF
 
 # ==== 7. Cleanup ====
-swapoff $SWAP_PART
-umount -R /mnt
+echo "Installation complete! Unmounting partitions..."
+"${SCRIPT_DIR}/unmount.sh" --swap-part ${SWAP_PART}
