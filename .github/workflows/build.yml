@@ -45,7 +45,7 @@ jobs:
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
       - name: Prepare build directory
         run: |
-          cp $GITHUB_WORKSPACE/arch-install.sh airootfs/root/
+          cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
           sed -i \
             -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
             -e 's|^SWAP_SIZE=.*|SWAP_SIZE=${{ env.SWAP_SIZE }}|' \
@@ -55,22 +55,20 @@ jobs:
             -e 's|^HOSTNAME=.*|HOSTNAME="${{ env.HOSTNAME }}"|' \
             -e 's|^USERNAME=.*|USERNAME="${{ env.USERNAME }}"|' \
             -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
-            airootfs/root/arch-install.sh
+            airootfs/root/scripts/arch-install.sh
 
-          chmod +x airootfs/root/arch-install.sh
-          chown root:root airootfs/root/arch-install.sh
-
-          cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
-          chmod +x airootfs/root/scripts/*.sh
+          find airootfs/root/scripts -name "*.sh" -exec chmod +x {} \;
           chown -R root:root airootfs/root/scripts
 
           cp $GITHUB_WORKSPACE/packages.txt airootfs/root/
           chown root:root airootfs/root/packages.txt
 
-          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/arch-install.sh"\]="0:0:755"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"|' profiledef.sh
-          for script in $GITHUB_WORKSPACE/scripts/*.sh; do
-            name=$(basename "$script")
-            sed -i "s|\[\"/root/scripts\"\]=\"0:0:755\"|\[\"/root/scripts\"\]=\"0:0:755\"\n  \[\"/root/scripts/${name}\"\]=\"0:0:755\"|" profiledef.sh
+          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/system"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"|' profiledef.sh
+          for script in $(find $GITHUB_WORKSPACE/scripts -name "*.sh" | sort); do
+            rel_path="${script#$GITHUB_WORKSPACE/}"
+            entry="/root/${rel_path}"
+            parent_entry="/root/$(dirname ${rel_path})"
+            sed -i "s|\[\"${parent_entry}\"\]=\"0:0:755\"|\[\"${parent_entry}\"\]=\"0:0:755\"\n  \[\"${entry}\"\]=\"0:0:755\"|" profiledef.sh
           done
 
           mkdir -p airootfs/etc/systemd/system/
