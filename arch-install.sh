@@ -10,6 +10,7 @@ NC='\033[0m'
 
 # Root directories
 SCRIPT_DIR="/root/scripts"
+CHROOT_SCRIPT_DIR="/root/scripts/chroot"
 
 # Variables
 EFI_SIZE=
@@ -56,53 +57,19 @@ echo -e "Generating ${BLUE}/etc/fstab${NC}..."
 "${SCRIPT_DIR}/fstab.sh"
 
 # ==== 6. Chroot and configure ====
+echo -e "Copying chroot scripts to ${BLUE}/mnt${CHROOT_SCRIPT_DIR}${NC}..."
+mkdir -p /mnt${CHROOT_SCRIPT_DIR}
+cp "${SCRIPT_DIR}/chroot/"*.sh /mnt${CHROOT_SCRIPT_DIR}/
+chmod +x /mnt${CHROOT_SCRIPT_DIR}/*.sh
+
+echo -e "Configuring system inside chroot..."
 arch-chroot /mnt /bin/bash <<EOF
-# Set time
-ln -sf /usr/share/zoneinfo/${LOCAL_ZONE} /etc/localtime
-hwclock --systohc
-
-# Localization
-sed -i "s/^#${LOCALE}/${LOCALE}/" /etc/locale.gen
-locale-gen
-echo "LANG=${LOCALE}" > /etc/locale.conf
-echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
-
-# Network configuration
-echo ${HOSTNAME} > /etc/hostname
-systemctl enable NetworkManager
-
-# Enable display manager
-systemctl enable plasmalogin
-
-# Initramfs
-mkinitcpio -P linux
-
-# Set root password
-echo "root:${PASSWORD}" | chpasswd
-
-# Create user
-useradd -m -G wheel -s /bin/bash ${USERNAME}
-echo "${USERNAME}:${PASSWORD}" | chpasswd
-
-# Enable sudo for wheel group
-echo "%wheel ALL=(ALL) ALL" >> /etc/sudoers
-
-# Install systemd-boot
-mkdir -p /boot/loader/entries
-ROOT_UUID=\$(blkid -s UUID -o value $ROOT_PART)
-cat <<EOL > /boot/loader/entries/arch.conf
-title   Arch Linux
-linux   /vmlinuz-linux
-initrd  /initramfs-linux.img
-options root=UUID=\$ROOT_UUID rw
-EOL
-
-echo "default arch.conf" > /boot/loader/loader.conf
-sed -i "s/^#timeout 3/timeout 3/" /boot/loader/loader.conf
-sed -i "s/^#editor no/editor no/" /boot/loader/loader.conf
-sed -i "s/^#console-mode keep/console-mode keep/" /boot/loader/loader.conf
-
-bootctl install
+${CHROOT_SCRIPT_DIR}/timezone.sh --local-zone ${LOCAL_ZONE}
+${CHROOT_SCRIPT_DIR}/locale.sh --locale ${LOCALE} --keymap ${KEYMAP}
+${CHROOT_SCRIPT_DIR}/network.sh --hostname ${HOSTNAME}
+${CHROOT_SCRIPT_DIR}/services.sh
+${CHROOT_SCRIPT_DIR}/users.sh --username ${USERNAME} --password ${PASSWORD}
+${CHROOT_SCRIPT_DIR}/bootloader.sh --root-part ${ROOT_PART}
 EOF
 
 # ==== 7. Cleanup ====
