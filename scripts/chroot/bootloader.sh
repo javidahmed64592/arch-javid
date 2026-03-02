@@ -29,9 +29,11 @@ options root=UUID=${ROOT_UUID} rw
 EOL
 
 # Configure loader
-echo "default arch.conf" > /boot/loader/loader.conf
-sed -i "s/^#timeout 3/timeout 3/" /boot/loader/loader.conf
-sed -i "s/^#editor no/editor no/" /boot/loader/loader.conf
-sed -i "s/^#console-mode keep/console-mode keep/" /boot/loader/loader.conf
+cat <<EOL > /boot/loader/loader.conf
+default arch.conf
+timeout 3
+editor no
+console-mode keep
+EOL
 
 bootctl install
