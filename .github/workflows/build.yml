@@ -30,6 +30,13 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
+      - name: Cache pacman packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/pacman/pkg
+          key: archlinux-pacman-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: |
+            archlinux-pacman-
       - name: Install dependencies
         run: |
           pacman -Sy --noconfirm archiso
