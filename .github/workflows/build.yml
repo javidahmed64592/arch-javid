@@ -68,6 +68,10 @@ jobs:
           chown root:root airootfs/root/packages.txt
 
           sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/arch-install.sh"\]="0:0:755"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"|' profiledef.sh
+          for script in $GITHUB_WORKSPACE/scripts/*.sh; do
+            name=$(basename "$script")
+            sed -i "s|\[\"/root/scripts\"\]=\"0:0:755\"|\[\"/root/scripts\"\]=\"0:0:755\"\n  \[\"/root/scripts/${name}\"\]=\"0:0:755\"|" profiledef.sh
+          done
 
           mkdir -p airootfs/etc/systemd/system/
           cp $GITHUB_WORKSPACE/arch-install.service airootfs/etc/systemd/system/
