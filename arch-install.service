@@ -5,6 +5,12 @@ After=network.target
 [Service]
 Type=oneshot
 ExecStart=/root/arch-install.sh
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
 RemainAfterExit=yes
 
 [Install]
