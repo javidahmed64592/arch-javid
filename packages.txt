@@ -1,0 +1,24 @@
+# Base packages
+base
+linux
+linux-firmware
+sudo
+nano
+
+# CPU
+intel-ucode
+
+# Network
+networkmanager
+
+# Display
+plasma-meta
+kde-applications-meta
+plasma-login-manager
+xorg-xwayland
+
+# Audio
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
