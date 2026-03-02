@@ -51,7 +51,8 @@ mkdir /mnt/boot
 mount $EFI_PART /mnt/boot
 
 # ==== 4. Install base system ====
-pacstrap /mnt base linux linux-firmware sudo nano intel-ucode networkmanager
+pacstrap /mnt base linux linux-firmware sudo nano intel-ucode networkmanager \
+  plasma-meta kde-applications-meta sddm xorg-xwayland pipewire pipewire-pulse pipewire-alsa wireplumber
 
 # ==== 5. Generate fstab ====
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -71,6 +72,9 @@ echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 # Network configuration
 echo ${HOSTNAME} > /etc/hostname
 systemctl enable NetworkManager
+
+# Enable display manager
+systemctl enable sddm
 
 # Initramfs
 mkinitcpio -P linux
