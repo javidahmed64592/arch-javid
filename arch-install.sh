@@ -59,7 +59,7 @@ echo -e "Generating ${BLUE}/etc/fstab${NC}..."
 # ==== 6. Chroot and configure ====
 echo -e "Copying chroot scripts to ${BLUE}/mnt${CHROOT_SCRIPT_DIR}${NC}..."
 mkdir -p /mnt${CHROOT_SCRIPT_DIR}
-cp "${SCRIPT_DIR}/chroot/"*.sh /mnt${CHROOT_SCRIPT_DIR}/
+cp "${CHROOT_SCRIPT_DIR}/"*.sh /mnt${CHROOT_SCRIPT_DIR}/
 chmod +x /mnt${CHROOT_SCRIPT_DIR}/*.sh
 
 echo -e "Configuring system inside chroot..."
