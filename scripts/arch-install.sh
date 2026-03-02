@@ -14,7 +14,6 @@ CHROOT_SCRIPT_DIR="/root/scripts/chroot"
 
 # Variables
 EFI_SIZE=
-SWAP_SIZE=
 
 LOCAL_ZONE=""
 LOCALE=""
@@ -31,17 +30,16 @@ echo -e "Detected disk: ${BLUE}${DISK}${NC}"
 if lsblk -dpno NAME,TYPE | grep -q "${DISK}part"; then
   echo -e "${YELLOW}Disk already has partitions. Skipping partitioning.${NC}"
 else
-  echo -e "Partitioning disk with EFI size ${BLUE}${EFI_SIZE} MiB${NC} and swap size ${BLUE}${SWAP_SIZE} MiB${NC}..."
-  "${SYSTEM_SCRIPT_DIR}/partition.sh" --disk ${DISK} --efi-size ${EFI_SIZE} --swap-size ${SWAP_SIZE}
+  echo -e "Partitioning disk with EFI size ${BLUE}${EFI_SIZE} MiB${NC}..."
+  "${SYSTEM_SCRIPT_DIR}/partition.sh" --disk ${DISK} --efi-size ${EFI_SIZE}
 fi
 
 # ==== 2. Make filesystems ====
 EFI_PART="${DISK}1"
-SWAP_PART="${DISK}2"
-ROOT_PART="${DISK}3"
+ROOT_PART="${DISK}2"
 
-echo -e "Creating filesystems on ${BLUE}${EFI_PART}${NC}, ${BLUE}${SWAP_PART}${NC}, and ${BLUE}${ROOT_PART}${NC}..."
-"${SYSTEM_SCRIPT_DIR}/makefs.sh" --efi-part ${EFI_PART} --swap-part ${SWAP_PART} --root-part ${ROOT_PART}
+echo -e "Creating filesystems on ${BLUE}${EFI_PART}${NC} and ${BLUE}${ROOT_PART}${NC}..."
+"${SYSTEM_SCRIPT_DIR}/makefs.sh" --efi-part ${EFI_PART} --root-part ${ROOT_PART}
 
 # ==== 3. Mount Partitions ====
 echo -e "Mounting ${BLUE}${ROOT_PART}${NC} to ${BLUE}/mnt${NC} and ${BLUE}${EFI_PART}${NC} to ${BLUE}/mnt/boot${NC}..."
@@ -74,4 +72,4 @@ EOF
 
 # ==== 7. Cleanup ====
 echo "Installation complete! Unmounting partitions..."
-"${SYSTEM_SCRIPT_DIR}/unmount.sh" --swap-part ${SWAP_PART}
+"${SYSTEM_SCRIPT_DIR}/unmount.sh"
