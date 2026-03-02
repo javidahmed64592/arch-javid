@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Enable display manager and rebuild initramfs
+# Enable services and rebuild initramfs
+systemctl enable NetworkManager
 systemctl enable plasmalogin
 mkinitcpio -P linux

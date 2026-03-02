@@ -64,9 +64,9 @@ chmod +x /mnt${CHROOT_SCRIPT_DIR}/*.sh
 
 echo -e "Configuring system inside chroot..."
 arch-chroot /mnt /bin/bash <<EOF
+echo ${HOSTNAME} > /etc/hostname
 ${CHROOT_SCRIPT_DIR}/timezone.sh --local-zone ${LOCAL_ZONE}
 ${CHROOT_SCRIPT_DIR}/locale.sh --locale ${LOCALE} --keymap ${KEYMAP}
-${CHROOT_SCRIPT_DIR}/network.sh --hostname ${HOSTNAME}
 ${CHROOT_SCRIPT_DIR}/services.sh
 ${CHROOT_SCRIPT_DIR}/users.sh --username ${USERNAME} --password ${PASSWORD}
 ${CHROOT_SCRIPT_DIR}/bootloader.sh --root-part ${ROOT_PART}
