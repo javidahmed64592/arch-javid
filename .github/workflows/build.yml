@@ -72,7 +72,7 @@ jobs:
           done
 
           mkdir -p airootfs/etc/systemd/system/
-          cp -r $GITHUB_WORKSPACE/services/ airootfs/etc/systemd/system/
+          cp $GITHUB_WORKSPACE/services/*.service airootfs/etc/systemd/system/
           ln -s /etc/systemd/system/arch-install.service airootfs/etc/systemd/system/multi-user.target.wants/arch-install.service
         working-directory: /root/${{ github.event.repository.name }}
       - name: Build ISO
