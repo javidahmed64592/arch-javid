@@ -52,7 +52,7 @@ mount $EFI_PART /mnt/boot
 
 # ==== 4. Install base system ====
 pacstrap /mnt base linux linux-firmware sudo nano intel-ucode networkmanager \
-  plasma-meta kde-applications-meta sddm xorg-xwayland pipewire pipewire-pulse pipewire-alsa wireplumber
+  plasma-meta kde-applications-meta plasma-login-manager xorg-xwayland pipewire pipewire-pulse pipewire-alsa wireplumber
 
 # ==== 5. Generate fstab ====
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -74,7 +74,7 @@ echo ${HOSTNAME} > /etc/hostname
 systemctl enable NetworkManager
 
 # Enable display manager
-systemctl enable sddm
+systemctl enable plasmalogin
 
 # Initramfs
 mkinitcpio -P linux
