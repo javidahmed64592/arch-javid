@@ -9,7 +9,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Root directories
-SCRIPT_DIR="/root/scripts"
+SYSTEM_SCRIPT_DIR="/root/scripts/system"
 CHROOT_SCRIPT_DIR="/root/scripts/chroot"
 
 # Variables
@@ -32,7 +32,7 @@ if lsblk -dpno NAME,TYPE | grep -q "${DISK}part"; then
   echo -e "${YELLOW}Disk already has partitions. Skipping partitioning.${NC}"
 else
   echo -e "Partitioning disk with EFI size ${BLUE}${EFI_SIZE} MiB${NC} and swap size ${BLUE}${SWAP_SIZE} MiB${NC}..."
-  "${SCRIPT_DIR}/partition.sh" --disk ${DISK} --efi-size ${EFI_SIZE} --swap-size ${SWAP_SIZE}
+  "${SYSTEM_SCRIPT_DIR}/partition.sh" --disk ${DISK} --efi-size ${EFI_SIZE} --swap-size ${SWAP_SIZE}
 fi
 
 # ==== 2. Make filesystems ====
@@ -41,11 +41,11 @@ SWAP_PART="${DISK}2"
 ROOT_PART="${DISK}3"
 
 echo -e "Creating filesystems on ${BLUE}${EFI_PART}${NC}, ${BLUE}${SWAP_PART}${NC}, and ${BLUE}${ROOT_PART}${NC}..."
-"${SCRIPT_DIR}/makefs.sh" --efi-part ${EFI_PART} --swap-part ${SWAP_PART} --root-part ${ROOT_PART}
+"${SYSTEM_SCRIPT_DIR}/makefs.sh" --efi-part ${EFI_PART} --swap-part ${SWAP_PART} --root-part ${ROOT_PART}
 
 # ==== 3. Mount Partitions ====
 echo -e "Mounting ${BLUE}${ROOT_PART}${NC} to ${BLUE}/mnt${NC} and ${BLUE}${EFI_PART}${NC} to ${BLUE}/mnt/boot${NC}..."
-"${SCRIPT_DIR}/mount.sh" --efi-part ${EFI_PART} --root-part ${ROOT_PART}
+"${SYSTEM_SCRIPT_DIR}/mount.sh" --efi-part ${EFI_PART} --root-part ${ROOT_PART}
 
 # ==== 4. Install base system ====
 echo -e "Installing base system with packages from ${BLUE}packages.txt${NC}..."
@@ -54,7 +54,7 @@ pacstrap /mnt $PACKAGES
 
 # ==== 5. Generate fstab ====
 echo -e "Generating ${BLUE}/etc/fstab${NC}..."
-"${SCRIPT_DIR}/fstab.sh"
+"${SYSTEM_SCRIPT_DIR}/fstab.sh"
 
 # ==== 6. Chroot and configure ====
 echo -e "Copying chroot scripts to ${BLUE}/mnt${CHROOT_SCRIPT_DIR}${NC}..."
@@ -74,4 +74,4 @@ EOF
 
 # ==== 7. Cleanup ====
 echo "Installation complete! Unmounting partitions..."
-"${SCRIPT_DIR}/unmount.sh" --swap-part ${SWAP_PART}
+"${SYSTEM_SCRIPT_DIR}/unmount.sh" --swap-part ${SWAP_PART}
