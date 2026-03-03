@@ -32,9 +32,6 @@ arch-javid/
 │       └── customize_airootfs.sh  # archiso hook: creates liveuser + enables sddm
 ├── calamares/
 │   ├── settings.conf              # Calamares module sequence (show + exec phases)
-│   ├── branding/arch-javid/       # Branding text; images copied from calamares default
-│   │   ├── branding.desc
-│   │   └── show.qml
 │   ├── modules/                   # Per-module configuration overrides
 │   │   ├── welcome.conf
 │   │   ├── locale.conf            # Default region: Europe / zone: London

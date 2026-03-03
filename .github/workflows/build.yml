@@ -28,11 +28,29 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pacman -Sy --noconfirm archiso calamares
+          pacman -Sy --noconfirm archiso
+
+      - name: Configure Chaotic-AUR
+        run: |
+          # Import the Chaotic-AUR signing key and install its keyring + mirrorlist.
+          # This is needed so mkarchiso can verify and install calamares (AUR-only package)
+          # when building the live ISO.
+          pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+          pacman-key --lsign-key 3056513887B78AEB
+          pacman -U --noconfirm \
+            'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' \
+            'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
 
       - name: Copy Releng profile
         run: |
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
+
+      - name: Configure profile repos
+        run: |
+          # Add Chaotic-AUR to the releng profile's pacman.conf so mkarchiso can
+          # download calamares and kpmcore into the live ISO.
+          printf '\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n' >> pacman.conf
+        working-directory: /root/${{ github.event.repository.name }}
 
       - name: Append live ISO packages
         run: |
@@ -48,14 +66,6 @@ jobs:
           cp -r $GITHUB_WORKSPACE/calamares/scripts/.           airootfs/etc/calamares/scripts/
           chmod +x airootfs/etc/calamares/scripts/*.sh
           cp    $GITHUB_WORKSPACE/packages.txt                  airootfs/etc/calamares/
-          mkdir -p airootfs/usr/share/calamares/branding
-          cp -r $GITHUB_WORKSPACE/calamares/branding/.          airootfs/usr/share/calamares/branding/
-          # Copy the default Calamares logo and welcome images into the custom branding directory.
-          # calamares is installed in the "Install dependencies" step above.
-          DEFAULT_BRANDING=/usr/share/calamares/branding/default
-          cp "$DEFAULT_BRANDING/logo.png"    airootfs/usr/share/calamares/branding/arch-javid/
-          cp "$DEFAULT_BRANDING/welcome.png" airootfs/usr/share/calamares/branding/arch-javid/ 2>/dev/null || \
-            cp "$DEFAULT_BRANDING/logo.png"  airootfs/usr/share/calamares/branding/arch-javid/welcome.png
         working-directory: /root/${{ github.event.repository.name }}
 
       - name: Install live ISO overlay
