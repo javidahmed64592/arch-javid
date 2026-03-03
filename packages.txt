@@ -1,6 +1,7 @@
 # Base packages
 base
 linux
+linux-headers
 linux-firmware
 sudo
 nano

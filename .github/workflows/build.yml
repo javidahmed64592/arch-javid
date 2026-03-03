@@ -70,7 +70,9 @@ jobs:
           done
 
           # Add script= boot parameter to run installer on boot
-          sed -i 's|archisobasedir=arch|archisobasedir=arch script=/root/scripts/arch-install.sh|' profiledef.sh
+          sed -i 's|archisobasedir=%INSTALL_DIR%|archisobasedir=%INSTALL_DIR% script=/root/scripts/arch-install.sh|' grub/grub.cfg
+          sed -i 's|archisobasedir=%INSTALL_DIR%|archisobasedir=%INSTALL_DIR% script=/root/scripts/arch-install.sh|' syslinux/archiso_sys-linux.cfg
+          sed -i 's|archisobasedir=%INSTALL_DIR%|archisobasedir=%INSTALL_DIR% script=/root/scripts/arch-install.sh|' syslinux/archiso_pxe-linux.cfg
         working-directory: /root/${{ github.event.repository.name }}
       - name: Build ISO
         run: |

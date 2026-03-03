@@ -9,9 +9,6 @@ echo "options nvidia_drm modeset=1 fbdev=1" > /etc/modprobe.d/nvidia.conf
 # Preserve video memory across suspend/resume (required for Wayland suspend support)
 echo "options nvidia NVreg_PreserveVideoMemoryAllocations=1" > /etc/modprobe.d/nvidia-power.conf
 
-# Add NVIDIA modules to dracut for early loading and omit nouveau
-echo "Adding NVIDIA drivers to dracut..."
-mkdir -p /etc/dracut.conf.d
-echo 'add_drivers+=" nvidia nvidia_modeset nvidia_uvm nvidia_drm "' > /etc/dracut.conf.d/nvidia.conf
-echo 'omit_drivers+=" nouveau "' >> /etc/dracut.conf.d/nvidia.conf
-dracut -f
+# Add NVIDIA modules to mkinitcpio for early loading
+echo "Adding NVIDIA drivers to mkinitcpio..."
+sed -i 's/^MODULES=.*/MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
