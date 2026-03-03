@@ -30,20 +30,47 @@ jobs:
         run: |
           pacman -Sy --noconfirm archiso
 
-      - name: Configure Chaotic-AUR
+      - name: Initialise pacman keyring
         run: |
-          # Import the Chaotic-AUR signing key and install its keyring + mirrorlist.
-          # This is needed so mkarchiso can verify and install calamares (AUR-only package)
-          # when building the live ISO.
-          # --init creates the local secret key required by --lsign-key.
-          # --populate seeds the keyring with the official Arch Linux keys.
+          # Initialise the keyring so mkarchiso can verify official package signatures.
+          # --init creates the local secret key; --populate imports Arch Linux developer keys.
           pacman-key --init
           pacman-key --populate archlinux
-          pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-          pacman-key --lsign-key 3056513887B78AEB
-          pacman -U --noconfirm \
-            'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' \
-            'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+
+      - name: Cache calamares package
+        id: calamares-cache
+        uses: actions/cache@v4
+        with:
+          path: /root/local-repo
+          key: calamares-pkg-${{ hashFiles('.github/workflows/build.yml') }}
+
+      - name: Build calamares from AUR
+        if: steps.calamares-cache.outputs.cache-hit != 'true'
+        run: |
+          # Install all calamares build-time dependencies from the official repos.
+          pacman -S --noconfirm --needed \
+            base-devel cmake git python \
+            qt6-base qt6-svg qt6-tools qt6-5compat qt6-declarative \
+            extra-cmake-modules yaml-cpp boost squashfs-tools libpwquality \
+            kf6-kconfig kf6-kcoreaddons kf6-kcrash kf6-kdbusaddons kf6-ki18n \
+            kf6-kiconthemes kf6-kio kf6-kpackage kf6-kparts kf6-kservice \
+            kf6-kwidgetsaddons kf6-kxmlgui kpmcore polkit-qt6 \
+            python-jsonschema python-pyaml
+
+          # makepkg refuses to run as root; create a dedicated build user.
+          useradd -m calamares-builder
+          echo "calamares-builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+          su - calamares-builder -c '
+            git clone https://aur.archlinux.org/calamares.git /tmp/calamares-aur
+            cd /tmp/calamares-aur
+            makepkg --noconfirm --skippgpcheck --noprogressbar
+          '
+
+          # Create a local pacman repo containing only the built calamares package.
+          mkdir -p /root/local-repo
+          mv /tmp/calamares-aur/calamares-*.pkg.tar.zst /root/local-repo/
+          repo-add /root/local-repo/local-packages.db.tar.zst /root/local-repo/calamares-*.pkg.tar.zst
 
       - name: Copy Releng profile
         run: |
@@ -51,9 +78,10 @@ jobs:
 
       - name: Configure profile repos
         run: |
-          # Add Chaotic-AUR to the releng profile's pacman.conf so mkarchiso can
-          # download calamares and kpmcore into the live ISO.
-          printf '\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist\n' >> pacman.conf
+          # Add the local repo (pre-built calamares) to the profile's pacman.conf.
+          # SigLevel Optional TrustAll skips signature verification for the locally
+          # built package which has no detached signature.
+          printf '\n[local-packages]\nSigLevel = Optional TrustAll\nServer = file:///root/local-repo\n' >> pacman.conf
         working-directory: /root/${{ github.event.repository.name }}
 
       - name: Append live ISO packages
