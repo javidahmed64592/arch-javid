@@ -11,12 +11,12 @@ on:
 
 env:
   # Disk partitions
-  EFI_SIZE: 1024
-  SWAP_SIZE: 4096
+  EFI_SIZE: 2048
   # Timezone and locale
   LOCAL_ZONE: Europe/London
   LOCALE: en_GB.UTF-8
   KEYMAP: uk
+  X11_KEYMAP: gb
   # System configuration
   HOSTNAME: arch-javid
   USERNAME: javid
@@ -48,10 +48,10 @@ jobs:
           cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
           sed -i \
             -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
-            -e 's|^SWAP_SIZE=.*|SWAP_SIZE=${{ env.SWAP_SIZE }}|' \
             -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
             -e 's|^LOCALE=.*|LOCALE="${{ env.LOCALE }}"|' \
             -e 's|^KEYMAP=.*|KEYMAP="${{ env.KEYMAP }}"|' \
+            -e 's|^X11_KEYMAP=.*|X11_KEYMAP="${{ env.X11_KEYMAP }}"|' \
             -e 's|^HOSTNAME=.*|HOSTNAME="${{ env.HOSTNAME }}"|' \
             -e 's|^USERNAME=.*|USERNAME="${{ env.USERNAME }}"|' \
             -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
@@ -70,10 +70,6 @@ jobs:
             parent_entry="/root/$(dirname ${rel_path})"
             sed -i "s|\[\"${parent_entry}\"\]=\"0:0:755\"|\[\"${parent_entry}\"\]=\"0:0:755\"\n  \[\"${entry}\"\]=\"0:0:755\"|" profiledef.sh
           done
-
-          mkdir -p airootfs/etc/systemd/system/
-          cp $GITHUB_WORKSPACE/services/*.service airootfs/etc/systemd/system/
-          ln -s /etc/systemd/system/arch-install.service airootfs/etc/systemd/system/multi-user.target.wants/arch-install.service
         working-directory: /root/${{ github.event.repository.name }}
       - name: Build ISO
         run: |

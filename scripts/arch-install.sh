@@ -18,6 +18,7 @@ EFI_SIZE=
 LOCAL_ZONE=""
 LOCALE=""
 KEYMAP=""
+X11_KEYMAP=""
 
 HOSTNAME=""
 USERNAME=""
@@ -45,16 +46,21 @@ echo -e "Creating filesystems on ${BLUE}${EFI_PART}${NC} and ${BLUE}${ROOT_PART}
 echo -e "Mounting ${BLUE}${ROOT_PART}${NC} to ${BLUE}/mnt${NC} and ${BLUE}${EFI_PART}${NC} to ${BLUE}/mnt/boot${NC}..."
 "${SYSTEM_SCRIPT_DIR}/mount.sh" --efi-part ${EFI_PART} --root-part ${ROOT_PART}
 
-# ==== 4. Install base system ====
+# ==== 4. Enable multilib and sync repos ====
+echo -e "Enabling ${BLUE}multilib${NC} repository..."
+sed -i '/^#\[multilib\]/{s/^#//;n;s/^#//}' /etc/pacman.conf
+pacman -Sy --noconfirm
+
+# ==== 5. Install base system ====
 echo -e "Installing base system with packages from ${BLUE}packages.txt${NC}..."
 PACKAGES=$(grep -v '^\s*#' /root/packages.txt | grep -v '^\s*$' | tr '\n' ' ')
 pacstrap /mnt $PACKAGES
 
-# ==== 5. Generate fstab ====
+# ==== 6. Generate fstab ====
 echo -e "Generating ${BLUE}/etc/fstab${NC}..."
 "${SYSTEM_SCRIPT_DIR}/fstab.sh"
 
-# ==== 6. Chroot and configure ====
+# ==== 7. Chroot and configure ====
 echo -e "Copying chroot scripts to ${BLUE}/mnt${CHROOT_SCRIPT_DIR}${NC}..."
 mkdir -p /mnt${CHROOT_SCRIPT_DIR}
 cp "${CHROOT_SCRIPT_DIR}/"*.sh /mnt${CHROOT_SCRIPT_DIR}/
@@ -64,12 +70,13 @@ echo -e "Configuring system inside chroot..."
 arch-chroot /mnt /bin/bash <<EOF
 echo ${HOSTNAME} > /etc/hostname
 ${CHROOT_SCRIPT_DIR}/timezone.sh --local-zone ${LOCAL_ZONE}
-${CHROOT_SCRIPT_DIR}/locale.sh --locale ${LOCALE} --keymap ${KEYMAP}
+${CHROOT_SCRIPT_DIR}/locale.sh --locale ${LOCALE} --keymap ${KEYMAP} --x11-keymap ${X11_KEYMAP}
 ${CHROOT_SCRIPT_DIR}/services.sh
+${CHROOT_SCRIPT_DIR}/nvidia.sh
 ${CHROOT_SCRIPT_DIR}/users.sh --username ${USERNAME} --password ${PASSWORD}
 ${CHROOT_SCRIPT_DIR}/bootloader.sh --root-part ${ROOT_PART}
 EOF
 
-# ==== 7. Cleanup ====
+# ==== 8. Cleanup ====
 echo "Installation complete! Unmounting partitions..."
 "${SYSTEM_SCRIPT_DIR}/unmount.sh"
