@@ -13,9 +13,30 @@ networkmanager
 
 # Display
 plasma-meta
-kde-applications-meta
 plasma-login-manager
 xorg-xwayland
+
+# Applications
+ark
+avahi
+calligra
+discover
+dolphin
+dragon
+filelight
+goverlay
+gwenview
+kcalc
+kclock
+kate
+konsole
+kwrite
+mpv
+partitionmanager
+plasma-pa
+plasma-systemmonitor
+spectacle
+systemsettings
 
 # Audio
 pipewire
