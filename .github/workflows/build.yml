@@ -47,15 +47,10 @@ jobs:
       - name: Build calamares from AUR
         if: steps.calamares-cache.outputs.cache-hit != 'true'
         run: |
-          # Install all calamares build-time dependencies from the official repos.
-          pacman -S --noconfirm --needed \
-            base-devel cmake git python \
-            qt6-base qt6-svg qt6-tools qt6-5compat qt6-declarative \
-            extra-cmake-modules yaml-cpp boost squashfs-tools libpwquality \
-            kf6-kconfig kf6-kcoreaddons kf6-kcrash kf6-kdbusaddons kf6-ki18n \
-            kf6-kiconthemes kf6-kio kf6-kpackage kf6-kparts kf6-kservice \
-            kf6-kwidgetsaddons kf6-kxmlgui kpmcore polkit-qt6 \
-            python-jsonschema python-pyaml
+          # Install the tools needed to run makepkg itself.
+          # All other makedepends are resolved by makepkg --syncdeps from the PKGBUILD,
+          # which avoids maintaining a hand-rolled list of KDE/Qt package names.
+          pacman -S --noconfirm --needed base-devel git
 
           # makepkg refuses to run as root; create a dedicated build user.
           useradd -m calamares-builder
@@ -64,7 +59,7 @@ jobs:
           su - calamares-builder -c '
             git clone https://aur.archlinux.org/calamares.git /tmp/calamares-aur
             cd /tmp/calamares-aur
-            makepkg --noconfirm --skippgpcheck --noprogressbar
+            makepkg --syncdeps --noconfirm --skippgpcheck --noprogressbar
           '
 
           # Create a local pacman repo containing only the built calamares package.
