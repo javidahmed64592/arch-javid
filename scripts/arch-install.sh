@@ -66,6 +66,7 @@ echo ${HOSTNAME} > /etc/hostname
 ${CHROOT_SCRIPT_DIR}/timezone.sh --local-zone ${LOCAL_ZONE}
 ${CHROOT_SCRIPT_DIR}/locale.sh --locale ${LOCALE} --keymap ${KEYMAP}
 ${CHROOT_SCRIPT_DIR}/services.sh
+${CHROOT_SCRIPT_DIR}/nvidia.sh
 ${CHROOT_SCRIPT_DIR}/users.sh --username ${USERNAME} --password ${PASSWORD}
 ${CHROOT_SCRIPT_DIR}/bootloader.sh --root-part ${ROOT_PART}
 EOF
