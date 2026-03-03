@@ -11,8 +11,7 @@ on:
 
 env:
   # Disk partitions
-  EFI_SIZE: 1024
-  SWAP_SIZE: 4096
+  EFI_SIZE: 2048
   # Timezone and locale
   LOCAL_ZONE: Europe/London
   LOCALE: en_GB.UTF-8
@@ -48,7 +47,6 @@ jobs:
           cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
           sed -i \
             -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
-            -e 's|^SWAP_SIZE=.*|SWAP_SIZE=${{ env.SWAP_SIZE }}|' \
             -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
             -e 's|^LOCALE=.*|LOCALE="${{ env.LOCALE }}"|' \
             -e 's|^KEYMAP=.*|KEYMAP="${{ env.KEYMAP }}"|' \
