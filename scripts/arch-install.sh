@@ -18,6 +18,7 @@ EFI_SIZE=
 LOCAL_ZONE=""
 LOCALE=""
 KEYMAP=""
+X11_KEYMAP=""
 
 HOSTNAME=""
 USERNAME=""
@@ -69,7 +70,7 @@ echo -e "Configuring system inside chroot..."
 arch-chroot /mnt /bin/bash <<EOF
 echo ${HOSTNAME} > /etc/hostname
 ${CHROOT_SCRIPT_DIR}/timezone.sh --local-zone ${LOCAL_ZONE}
-${CHROOT_SCRIPT_DIR}/locale.sh --locale ${LOCALE} --keymap ${KEYMAP}
+${CHROOT_SCRIPT_DIR}/locale.sh --locale ${LOCALE} --keymap ${KEYMAP} --x11-keymap ${X11_KEYMAP}
 ${CHROOT_SCRIPT_DIR}/services.sh
 ${CHROOT_SCRIPT_DIR}/nvidia.sh
 ${CHROOT_SCRIPT_DIR}/users.sh --username ${USERNAME} --password ${PASSWORD}

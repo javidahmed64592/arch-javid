@@ -16,6 +16,7 @@ env:
   LOCAL_ZONE: Europe/London
   LOCALE: en_GB.UTF-8
   KEYMAP: uk
+  X11_KEYMAP: gb
   # System configuration
   HOSTNAME: arch-javid
   USERNAME: javid
@@ -50,6 +51,7 @@ jobs:
             -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
             -e 's|^LOCALE=.*|LOCALE="${{ env.LOCALE }}"|' \
             -e 's|^KEYMAP=.*|KEYMAP="${{ env.KEYMAP }}"|' \
+            -e 's|^X11_KEYMAP=.*|X11_KEYMAP="${{ env.X11_KEYMAP }}"|' \
             -e 's|^HOSTNAME=.*|HOSTNAME="${{ env.HOSTNAME }}"|' \
             -e 's|^USERNAME=.*|USERNAME="${{ env.USERNAME }}"|' \
             -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
