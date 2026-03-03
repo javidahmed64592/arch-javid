@@ -69,9 +69,8 @@ jobs:
             sed -i "s|\[\"${parent_entry}\"\]=\"0:0:755\"|\[\"${parent_entry}\"\]=\"0:0:755\"\n  \[\"${entry}\"\]=\"0:0:755\"|" profiledef.sh
           done
 
-          mkdir -p airootfs/etc/systemd/system/
-          cp $GITHUB_WORKSPACE/services/*.service airootfs/etc/systemd/system/
-          ln -s /etc/systemd/system/arch-install.service airootfs/etc/systemd/system/multi-user.target.wants/arch-install.service
+          # Add script= boot parameter to run installer on boot
+          sed -i 's|archisobasedir=arch|archisobasedir=arch script=/root/scripts/arch-install.sh|' profiledef.sh
         working-directory: /root/${{ github.event.repository.name }}
       - name: Build ISO
         run: |
