@@ -1,0 +1,27 @@
+---
+componentName: arch-javid
+
+strings:
+  productName:         "Arch Linux"
+  shortProductName:    "Arch Linux"
+  version:             "rolling"
+  shortVersion:        "rolling"
+  versionedName:       "Arch Linux (rolling)"
+  shortVersionedName:  "Arch Linux"
+  bootloaderEntryName: "Arch Javid"
+  productUrl:          ""
+  supportUrl:          ""
+  bugReportUrl:        ""
+
+images:
+  productLogo:    "logo.png"
+  productIcon:    "logo.png"
+  productWelcome: "welcome.png"
+
+slideshow: "show.qml"
+slideshowAPI: 2
+
+style:
+  sidebarBackground:    "#222435"
+  sidebarText:          "#FFFFFF"
+  sidebarTextHighlight: "#1793d1"

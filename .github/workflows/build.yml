@@ -9,19 +9,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  # Disk partitions
-  EFI_SIZE: 2048
-  # Timezone and locale
-  LOCAL_ZONE: Europe/London
-  LOCALE: en_GB.UTF-8
-  KEYMAP: uk
-  X11_KEYMAP: gb
-  # System configuration
-  HOSTNAME: arch-javid
-  USERNAME: javid
-  PASSWORD: password
-
 jobs:
   build-iso:
     runs-on: ubuntu-latest
@@ -30,51 +17,80 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
+
       - name: Cache pacman packages
         uses: actions/cache@v4
         with:
           path: /var/cache/pacman/pkg
-          key: archlinux-pacman-${{ hashFiles('.github/workflows/build.yml') }}
+          key: archlinux-pacman-${{ hashFiles('.github/workflows/build.yml', 'live-packages.txt', 'packages.txt') }}
           restore-keys: |
             archlinux-pacman-
+
       - name: Install dependencies
         run: |
-          pacman -Sy --noconfirm archiso
+          pacman -Sy --noconfirm archiso calamares
+
       - name: Copy Releng profile
         run: |
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
-      - name: Prepare build directory
+
+      - name: Append live ISO packages
         run: |
-          cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
+          grep -v '^\s*#' $GITHUB_WORKSPACE/live-packages.txt | grep -v '^\s*$' >> packages.x86_64
+        working-directory: /root/${{ github.event.repository.name }}
+
+      - name: Install Calamares config
+        run: |
+          mkdir -p airootfs/etc/calamares/modules
+          mkdir -p airootfs/etc/calamares/scripts
+          cp    $GITHUB_WORKSPACE/calamares/settings.conf       airootfs/etc/calamares/
+          cp -r $GITHUB_WORKSPACE/calamares/modules/.           airootfs/etc/calamares/modules/
+          cp -r $GITHUB_WORKSPACE/calamares/scripts/.           airootfs/etc/calamares/scripts/
+          chmod +x airootfs/etc/calamares/scripts/*.sh
+          cp    $GITHUB_WORKSPACE/packages.txt                  airootfs/etc/calamares/
+          mkdir -p airootfs/usr/share/calamares/branding
+          cp -r $GITHUB_WORKSPACE/calamares/branding/.          airootfs/usr/share/calamares/branding/
+          # Copy the default Calamares logo and welcome images into the custom branding directory.
+          # calamares is installed in the "Install dependencies" step above.
+          DEFAULT_BRANDING=/usr/share/calamares/branding/default
+          cp "$DEFAULT_BRANDING/logo.png"    airootfs/usr/share/calamares/branding/arch-javid/
+          cp "$DEFAULT_BRANDING/welcome.png" airootfs/usr/share/calamares/branding/arch-javid/ 2>/dev/null || \
+            cp "$DEFAULT_BRANDING/logo.png"  airootfs/usr/share/calamares/branding/arch-javid/welcome.png
+        working-directory: /root/${{ github.event.repository.name }}
+
+      - name: Install live ISO overlay
+        run: |
+          cp -r $GITHUB_WORKSPACE/airootfs/. airootfs/
+        working-directory: /root/${{ github.event.repository.name }}
+
+      - name: Install NVIDIA script
+        run: |
+          mkdir -p airootfs/root/scripts/chroot
+          cp    $GITHUB_WORKSPACE/scripts/chroot/nvidia.sh airootfs/root/scripts/chroot/
+          chmod +x airootfs/root/scripts/chroot/nvidia.sh
+        working-directory: /root/${{ github.event.repository.name }}
+
+      - name: Update profiledef.sh permissions
+        run: |
           sed -i \
-            -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
-            -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
-            -e 's|^LOCALE=.*|LOCALE="${{ env.LOCALE }}"|' \
-            -e 's|^KEYMAP=.*|KEYMAP="${{ env.KEYMAP }}"|' \
-            -e 's|^X11_KEYMAP=.*|X11_KEYMAP="${{ env.X11_KEYMAP }}"|' \
-            -e 's|^HOSTNAME=.*|HOSTNAME="${{ env.HOSTNAME }}"|' \
-            -e 's|^USERNAME=.*|USERNAME="${{ env.USERNAME }}"|' \
-            -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
-            airootfs/root/scripts/arch-install.sh
+            's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/customize_airootfs.sh"\]="0:0:755"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/scripts/chroot/nvidia.sh"\]="0:0:755"|' \
+            profiledef.sh
 
-          find airootfs/root/scripts -name "*.sh" -exec chmod +x {} \;
-          chown -R root:root airootfs/root/scripts
+          sed -i \
+            's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/etc/calamares"\]="0:0:755"\n  \["/etc/calamares/packages.txt"\]="0:0:644"\n  \["/etc/calamares/settings.conf"\]="0:0:644"\n  \["/etc/calamares/scripts"\]="0:0:755"|' \
+            profiledef.sh
 
-          cp $GITHUB_WORKSPACE/packages.txt airootfs/root/
-          chown root:root airootfs/root/packages.txt
-
-          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/system"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"|' profiledef.sh
-          for script in $(find $GITHUB_WORKSPACE/scripts -name "*.sh" | sort); do
-            rel_path="${script#$GITHUB_WORKSPACE/}"
-            entry="/root/${rel_path}"
-            parent_entry="/root/$(dirname ${rel_path})"
-            sed -i "s|\[\"${parent_entry}\"\]=\"0:0:755\"|\[\"${parent_entry}\"\]=\"0:0:755\"\n  \[\"${entry}\"\]=\"0:0:755\"|" profiledef.sh
+          for script in $(find $GITHUB_WORKSPACE/calamares/scripts -name "*.sh" | sort); do
+            name=$(basename "$script")
+            sed -i "s|\[\"/etc/calamares/scripts\"\]=\"0:0:755\"|\[\"/etc/calamares/scripts\"\]=\"0:0:755\"\n  \[\"/etc/calamares/scripts/${name}\"\]=\"0:0:755\"|" profiledef.sh
           done
         working-directory: /root/${{ github.event.repository.name }}
+
       - name: Build ISO
         run: |
           mkarchiso -v -w /root/work -o /root/out .
         working-directory: /root/${{ github.event.repository.name }}
+
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
