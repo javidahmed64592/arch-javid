@@ -45,7 +45,7 @@ pipewire-alsa
 wireplumber
 
 # NVIDIA
-nvidia-open
+nvidia-open-dkms
 nvidia-utils
 nvidia-settings
 
