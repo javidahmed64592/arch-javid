@@ -22,10 +22,10 @@ fi
 mkdir -p /boot/loader/entries
 ROOT_UUID=$(blkid -s UUID -o value ${ROOT_PART})
 cat <<EOL > /boot/loader/entries/arch.conf
-title   Arch Linux
+title   Arch Javid
 linux   /vmlinuz-linux
 initrd  /initramfs-linux.img
-options root=UUID=${ROOT_UUID} rw
+options root=UUID=${ROOT_UUID} rw nvidia-drm.modeset=1 nvidia_drm.fbdev=1
 EOL
 
 # Configure loader
