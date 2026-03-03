@@ -70,11 +70,6 @@ jobs:
             parent_entry="/root/$(dirname ${rel_path})"
             sed -i "s|\[\"${parent_entry}\"\]=\"0:0:755\"|\[\"${parent_entry}\"\]=\"0:0:755\"\n  \[\"${entry}\"\]=\"0:0:755\"|" profiledef.sh
           done
-
-          # Add script= boot parameter to run installer on boot
-          sed -i 's|archisobasedir=%INSTALL_DIR%|archisobasedir=%INSTALL_DIR% script=/root/scripts/arch-install.sh|' grub/grub.cfg
-          sed -i 's|archisobasedir=%INSTALL_DIR%|archisobasedir=%INSTALL_DIR% script=/root/scripts/arch-install.sh|' syslinux/archiso_sys-linux.cfg
-          sed -i 's|archisobasedir=%INSTALL_DIR%|archisobasedir=%INSTALL_DIR% script=/root/scripts/arch-install.sh|' syslinux/archiso_pxe-linux.cfg
         working-directory: /root/${{ github.event.repository.name }}
       - name: Build ISO
         run: |
