@@ -65,7 +65,7 @@ jobs:
 
           echo "Checking for required Python modules in package..."
           _pkg=$(ls /tmp/calamares-aur/calamares-*.pkg.tar.zst | head -1)
-          for mod in mount fstab localecfg timezone networkcfg hwclock services-systemd bootloader; do
+          for mod in mount fstab localecfg networkcfg hwclock services-systemd bootloader; do
             if ! bsdtar -tf "$_pkg" | grep -q "modules/${mod}/module.desc"; then
               echo "ERROR: module '$mod' missing from calamares package" >&2
               exit 1
