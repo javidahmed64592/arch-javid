@@ -6,31 +6,42 @@ linux-firmware
 sudo
 nano
 
+# System update notifier (AUR)
+arch-update
+
 # CPU
 intel-ucode
 
 # Network
 networkmanager
+network-manager-applet
+firewalld
+
+# Bluetooth
+bluez
+bluez-utils
+
+# Audio
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
 
 # Display
+breeze
+breeze-gtk
 plasma-meta
 plasma-login-manager
-xorg-xwayland
-breeze
+kde-cli-tools
 kde-gtk-config
 xdg-desktop-portal-kde
 xdg-user-dirs
+xorg-xwayland
 
 # Fonts
 noto-fonts
 noto-fonts-emoji
 ttf-liberation
-
-# Web Browser
-firefox
-
-# Development
-git
 
 # Applications
 ark
@@ -39,6 +50,7 @@ calligra
 discover
 dolphin
 dragon
+firefox
 filelight
 goverlay
 gwenview
@@ -53,12 +65,6 @@ plasma-pa
 plasma-systemmonitor
 spectacle
 systemsettings
-
-# Audio
-pipewire
-pipewire-pulse
-pipewire-alsa
-wireplumber
 
 # NVIDIA
 nvidia-open-dkms

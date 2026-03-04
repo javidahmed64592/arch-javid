@@ -5,8 +5,15 @@ python
 # Partioning backend for Calamares
 kpmcore
 
-# System update notifier (AUR)
-arch-update
+# Network
+networkmanager
+network-manager-applet
+
+# Audio
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
 
 # Display
 breeze
@@ -31,13 +38,3 @@ xorg-xwayland
 konsole
 dolphin
 kate
-
-# Audio
-plasma-pa
-pipewire
-pipewire-pulse
-wireplumber
-
-# Networking
-networkmanager
-network-manager-applet
