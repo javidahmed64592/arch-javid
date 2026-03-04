@@ -1,21 +1,43 @@
-# Calamares installer
+# Calamares graphical installer
 calamares
+python
+
+# Partioning backend for Calamares
 kpmcore
 
+# System update notifier (AUR)
+arch-update
+
 # Display
-sddm
-plasma-desktop
-plasma-workspace
-xorg-xwayland
 breeze
+breeze-gtk
+kde-cli-tools
+kde-gtk-config
+kscreen
 kwin
+plasma-desktop
+plasma-integration
+plasma-nm
+plasma-pa
+plasma-systemmonitor
+plasma-workspace
 polkit-kde-agent
+sddm
+xdg-desktop-portal-kde
+xdg-user-dirs
+xorg-xwayland
 
 # Applications
 konsole
+dolphin
+kate
 
 # Audio
 plasma-pa
 pipewire
 pipewire-pulse
 wireplumber
+
+# Networking
+networkmanager
+network-manager-applet
