@@ -1,6 +1,8 @@
 # Calamares graphical installer
 calamares
 python
+kcrash
+kconfig
 
 # Partioning backend for Calamares
 kpmcore

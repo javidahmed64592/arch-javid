@@ -50,10 +50,16 @@ jobs:
           useradd -m calamares-builder
           echo "calamares-builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
+          # Import GPG keys for signature verification
+          # Calamares maintainer key: 117C61D8 (Adriaan de Groot)
+          su - calamares-builder -c '
+            gpg --keyserver keyserver.ubuntu.com --recv-keys 117C61D8B6DB2BE48B8AAF891068F9EC117C61D8 || true
+          '
+
           su - calamares-builder -c '
             git clone https://aur.archlinux.org/calamares.git /tmp/calamares-aur
             cd /tmp/calamares-aur
-            makepkg --syncdeps --noconfirm --skippgpcheck --noprogressbar
+            makepkg --syncdeps --noconfirm --noprogressbar
           '
 
           mkdir -p /root/local-repo
