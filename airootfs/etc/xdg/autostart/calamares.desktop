@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=Calamares Installer
+Comment=System Installer
 Exec=sudo calamares
 Icon=calamares
-Comment=System Installer
 Categories=System;
 X-KDE-autostart-phase=2
