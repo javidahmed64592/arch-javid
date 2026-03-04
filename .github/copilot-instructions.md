@@ -57,12 +57,9 @@ arch-javid/
 │       ├── multilib-live.sh       # sed pacman.conf + pacman -Sy (on host)
 │       ├── pacstrap.sh            # pacstrap /tmp/calamares-root using packages.txt
 │       ├── multilib-installed.sh  # sed /tmp/calamares-root/etc/pacman.conf (on host)
-│       ├── nvidia.sh              # Wrapper: copies + arch-chrootss scripts/chroot/nvidia.sh
+│       ├── nvidia.sh              # Configures NVIDIA modprobe + mkinitcpio.conf MODULES
 │       └── initramfs.sh           # arch-chroot mkinitcpio -P linux
 ├── live-packages.txt              # Extra packages appended to the releng packages.x86_64
-├── scripts/
-│   └── chroot/
-│       └── nvidia.sh              # NVIDIA modprobe config + mkinitcpio.conf MODULES edit
 └── packages.txt                   # Full package list consumed by pacstrap during install
 ```
 
@@ -81,8 +78,8 @@ The only steps Calamares cannot handle natively are:
 
 1. **Multilib enablement** — done via `shellprocess@multilib-live` (on the host before
    pacstrap) and `shellprocess@multilib-installed` (in the target after pacstrap).
-2. **NVIDIA driver configuration** — done via `shellprocess@nvidia`, which invokes
-   `scripts/chroot/nvidia.sh` inside an `arch-chroot`.
+2. **NVIDIA driver configuration** — done via `shellprocess@nvidia`, which configures
+   modprobe options and mkinitcpio MODULES directly on the target.
 3. **Initramfs rebuild** — done via `shellprocess@initramfs` after the NVIDIA modules
    have been added to `mkinitcpio.conf`.
 
@@ -141,13 +138,11 @@ Btrfs is mounted with `compress=zstd`.
 ### GPU / Display Stack
 
 - **Driver package**: `nvidia-open-dkms` (requires `linux-headers`)
-- `scripts/chroot/nvidia.sh` writes:
+- `calamares/scripts/nvidia.sh` writes:
   - `/etc/modprobe.d/nvidia.conf` — `nvidia_drm modeset=1 fbdev=1`
   - `/etc/modprobe.d/nvidia-power.conf` — `NVreg_PreserveVideoMemoryAllocations=1`
 - Same script sets `MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)` in
   `/etc/mkinitcpio.conf` for early KMS.
-- `calamares/scripts/nvidia.sh` is the wrapper that copies and runs `scripts/chroot/nvidia.sh`
-  inside the installed system chroot via `arch-chroot`.
 - `mkinitcpio -P linux` is called in `shellprocess@initramfs` **after** the MODULES edit.
 
 ### Desktop Environment
@@ -198,10 +193,9 @@ hostname, username, password) are collected interactively by the Calamares wizar
 6. Copy `calamares/` → `airootfs/etc/calamares/` and copy `packages.txt` alongside.
    Copy branding; borrow `logo.png` / `welcome.png` from the installed calamares default.
 7. Merge `airootfs/` overlay on top of the releng airootfs.
-8. Copy `scripts/chroot/nvidia.sh` → `airootfs/root/scripts/chroot/`.
-9. Patch `profiledef.sh` with correct permissions for all new files.
-10. Build: `mkarchiso -v -w /root/work -o /root/out .`
-11. Upload the resulting `.iso` as a GitHub Actions artifact.
+8. Patch `profiledef.sh` with correct permissions for all new files.
+9. Build: `mkarchiso -v -w /root/work -o /root/out .`
+10. Upload the resulting `.iso` as a GitHub Actions artifact.
 
 ---
 
@@ -214,9 +208,9 @@ hostname, username, password) are collected interactively by the Calamares wizar
 - New packages required only in the live ISO go in `live-packages.txt`.
 - Kernel parameters that affect NVIDIA/Wayland (`nvidia-drm.modeset=1`) must appear in
   `calamares/modules/bootloader.conf` under `kernelLine`.
-- When adding a new modprobe option, add it to `scripts/chroot/nvidia.sh`.
+- When adding a new modprobe option, add it to `calamares/scripts/nvidia.sh`.
 - When adding a new kernel module for early loading, add it to the `MODULES=()` sed
-  command in `scripts/chroot/nvidia.sh` and ensure `shellprocess@initramfs` runs after.
+  command in `calamares/scripts/nvidia.sh` and ensure `shellprocess@initramfs` runs after.
 
 ---
 

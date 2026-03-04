@@ -32,8 +32,6 @@ jobs:
 
       - name: Initialise pacman keyring
         run: |
-          # Initialise the keyring so mkarchiso can verify official package signatures.
-          # --init creates the local secret key; --populate imports Arch Linux developer keys.
           pacman-key --init
           pacman-key --populate archlinux
 
@@ -47,12 +45,8 @@ jobs:
       - name: Build calamares from AUR
         if: steps.calamares-cache.outputs.cache-hit != 'true'
         run: |
-          # Install the tools needed to run makepkg itself.
-          # All other makedepends are resolved by makepkg --syncdeps from the PKGBUILD,
-          # which avoids maintaining a hand-rolled list of KDE/Qt package names.
           pacman -S --noconfirm --needed base-devel git
 
-          # makepkg refuses to run as root; create a dedicated build user.
           useradd -m calamares-builder
           echo "calamares-builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
@@ -62,7 +56,6 @@ jobs:
             makepkg --syncdeps --noconfirm --skippgpcheck --noprogressbar
           '
 
-          # Create a local pacman repo containing only the built calamares package.
           mkdir -p /root/local-repo
           mv /tmp/calamares-aur/calamares-*.pkg.tar.zst /root/local-repo/
           repo-add /root/local-repo/local-packages.db.tar.zst /root/local-repo/calamares-*.pkg.tar.zst
@@ -73,9 +66,6 @@ jobs:
 
       - name: Configure profile repos
         run: |
-          # Add the local repo (pre-built calamares) to the profile's pacman.conf.
-          # SigLevel Optional TrustAll skips signature verification for the locally
-          # built package which has no detached signature.
           printf '\n[local-packages]\nSigLevel = Optional TrustAll\nServer = file:///root/local-repo\n' >> pacman.conf
         working-directory: /root/${{ github.event.repository.name }}
 
@@ -100,17 +90,10 @@ jobs:
           cp -r $GITHUB_WORKSPACE/airootfs/. airootfs/
         working-directory: /root/${{ github.event.repository.name }}
 
-      - name: Install NVIDIA script
-        run: |
-          mkdir -p airootfs/root/scripts/chroot
-          cp    $GITHUB_WORKSPACE/scripts/chroot/nvidia.sh airootfs/root/scripts/chroot/
-          chmod +x airootfs/root/scripts/chroot/nvidia.sh
-        working-directory: /root/${{ github.event.repository.name }}
-
       - name: Update profiledef.sh permissions
         run: |
           sed -i \
-            's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/customize_airootfs.sh"\]="0:0:755"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/scripts/chroot/nvidia.sh"\]="0:0:755"|' \
+            's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/customize_airootfs.sh"\]="0:0:755"|' \
             profiledef.sh
 
           sed -i \
