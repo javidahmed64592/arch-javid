@@ -6,9 +6,6 @@ linux-firmware
 sudo
 nano
 
-# System update notifier (AUR)
-arch-update
-
 # CPU
 intel-ucode
 

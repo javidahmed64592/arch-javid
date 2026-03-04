@@ -46,6 +46,7 @@ jobs:
         if: steps.calamares-cache.outputs.cache-hit != 'true'
         run: |
           pacman -S --noconfirm --needed base-devel git
+          pacman -S --noconfirm --needed python
 
           useradd -m calamares-builder
           echo "calamares-builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -61,6 +62,16 @@ jobs:
             cd /tmp/calamares-aur
             makepkg --syncdeps --noconfirm --noprogressbar
           '
+
+          echo "Checking for required Python modules in package..."
+          _pkg=$(ls /tmp/calamares-aur/calamares-*.pkg.tar.zst | head -1)
+          for mod in mount fstab localecfg timezone networkcfg hwclock services-systemd bootloader; do
+            if ! bsdtar -tf "$_pkg" | grep -q "modules/${mod}/module.desc"; then
+              echo "ERROR: module '$mod' missing from calamares package" >&2
+              exit 1
+            fi
+          done
+          echo "All required modules present."
 
           mkdir -p /root/local-repo
           mv /tmp/calamares-aur/calamares-*.pkg.tar.zst /root/local-repo/
