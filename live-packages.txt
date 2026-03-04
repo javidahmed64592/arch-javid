@@ -2,21 +2,20 @@
 calamares
 kpmcore
 
-# Display manager for live autologin session
+# Display
 sddm
-
-# Minimal KDE Plasma for running Calamares
 plasma-desktop
-kwin
+plasma-workspace
+xorg-xwayland
 breeze
-konsole
+kwin
 polkit-kde-agent
 
-# Audio (required for a working KDE session)
+# Applications
+konsole
+
+# Audio
 plasma-pa
 pipewire
 pipewire-pulse
 wireplumber
-
-# Wayland compatibility
-xorg-xwayland

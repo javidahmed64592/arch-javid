@@ -16,6 +16,21 @@ networkmanager
 plasma-meta
 plasma-login-manager
 xorg-xwayland
+breeze
+kde-gtk-config
+xdg-desktop-portal-kde
+xdg-user-dirs
+
+# Fonts
+noto-fonts
+noto-fonts-emoji
+ttf-liberation
+
+# Web Browser
+firefox
+
+# Development
+git
 
 # Applications
 ark
