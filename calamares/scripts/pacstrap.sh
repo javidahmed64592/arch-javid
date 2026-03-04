@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_MOUNT="/tmp/calamares-root"
+ROOT_MOUNT="${1:?ERROR: root mount point not provided}"
 PACKAGES_FILE="/etc/calamares/packages.txt"
 
 # Install all packages from packages.txt into the Calamares target root.

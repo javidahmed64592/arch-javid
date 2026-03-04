@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_MOUNT="/tmp/calamares-root"
+ROOT_MOUNT="${1:?ERROR: root mount point not provided}"
 
 # Rebuild the initramfs in the installed chroot.
 # This must run after nvidia.sh has added NVIDIA modules to /etc/mkinitcpio.conf,

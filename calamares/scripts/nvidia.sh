@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_MOUNT="/tmp/calamares-root"
+ROOT_MOUNT="${1:?ERROR: root mount point not provided}"
 
 # Configure NVIDIA DRM modesetting + fbdev for Wayland/KDE (required on Linux 6.11+)
 echo "Configuring NVIDIA modeset..."
