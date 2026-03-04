@@ -9,19 +9,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  # Disk partitions
-  EFI_SIZE: 2048
-  # Timezone and locale
-  LOCAL_ZONE: Europe/London
-  LOCALE: en_GB.UTF-8
-  KEYMAP: uk
-  X11_KEYMAP: gb
-  # System configuration
-  HOSTNAME: arch-javid
-  USERNAME: javid
-  PASSWORD: password
-
 jobs:
   build-iso:
     runs-on: ubuntu-latest
@@ -30,51 +17,117 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v4
+
       - name: Cache pacman packages
         uses: actions/cache@v4
         with:
           path: /var/cache/pacman/pkg
-          key: archlinux-pacman-${{ hashFiles('.github/workflows/build.yml') }}
+          key: archlinux-pacman-${{ hashFiles('.github/workflows/build.yml', 'live-packages.txt', 'packages.txt') }}
           restore-keys: |
             archlinux-pacman-
+
       - name: Install dependencies
         run: |
           pacman -Sy --noconfirm archiso
+
+      - name: Initialise pacman keyring
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+
+      - name: Cache calamares package
+        id: calamares-cache
+        uses: actions/cache@v4
+        with:
+          path: /root/local-repo
+          key: calamares-pkg-${{ hashFiles('.github/workflows/build.yml') }}
+
+      - name: Build calamares from AUR
+        if: steps.calamares-cache.outputs.cache-hit != 'true'
+        run: |
+          pacman -S --noconfirm --needed base-devel git
+          pacman -S --noconfirm --needed python
+
+          useradd -m calamares-builder
+          echo "calamares-builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+          # Import GPG keys for signature verification
+          # Calamares maintainer key: 117C61D8 (Adriaan de Groot)
+          su - calamares-builder -c '
+            gpg --keyserver keyserver.ubuntu.com --recv-keys 117C61D8B6DB2BE48B8AAF891068F9EC117C61D8 || true
+          '
+
+          su - calamares-builder -c '
+            git clone https://aur.archlinux.org/calamares.git /tmp/calamares-aur
+            cd /tmp/calamares-aur
+            makepkg --syncdeps --noconfirm --noprogressbar
+          '
+
+          echo "Checking for required Python modules in package..."
+          _pkg=$(ls /tmp/calamares-aur/calamares-*.pkg.tar.zst | head -1)
+          for mod in mount fstab localecfg networkcfg hwclock services-systemd bootloader; do
+            if ! bsdtar -tf "$_pkg" | grep -q "modules/${mod}/module.desc"; then
+              echo "ERROR: module '$mod' missing from calamares package" >&2
+              exit 1
+            fi
+          done
+          echo "All required modules present."
+
+          mkdir -p /root/local-repo
+          mv /tmp/calamares-aur/calamares-*.pkg.tar.zst /root/local-repo/
+          repo-add /root/local-repo/local-packages.db.tar.zst /root/local-repo/calamares-*.pkg.tar.zst
+
       - name: Copy Releng profile
         run: |
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
-      - name: Prepare build directory
+
+      - name: Configure profile repos
         run: |
-          cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
+          printf '\n[local-packages]\nSigLevel = Optional TrustAll\nServer = file:///root/local-repo\n' >> pacman.conf
+        working-directory: /root/${{ github.event.repository.name }}
+
+      - name: Append live ISO packages
+        run: |
+          grep -v '^\s*#' $GITHUB_WORKSPACE/live-packages.txt | grep -v '^\s*$' >> packages.x86_64
+        working-directory: /root/${{ github.event.repository.name }}
+
+      - name: Install Calamares config
+        run: |
+          mkdir -p airootfs/etc/calamares/modules
+          mkdir -p airootfs/etc/calamares/scripts
+          cp    $GITHUB_WORKSPACE/calamares/settings.conf       airootfs/etc/calamares/
+          cp -r $GITHUB_WORKSPACE/calamares/modules/.           airootfs/etc/calamares/modules/
+          cp -r $GITHUB_WORKSPACE/calamares/scripts/.           airootfs/etc/calamares/scripts/
+          chmod +x airootfs/etc/calamares/scripts/*.sh
+          cp    $GITHUB_WORKSPACE/packages.txt                  airootfs/etc/calamares/
+        working-directory: /root/${{ github.event.repository.name }}
+
+      - name: Install live ISO overlay
+        run: |
+          cp -r $GITHUB_WORKSPACE/airootfs/. airootfs/
+        working-directory: /root/${{ github.event.repository.name }}
+
+      - name: Update profiledef.sh permissions
+        run: |
           sed -i \
-            -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
-            -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
-            -e 's|^LOCALE=.*|LOCALE="${{ env.LOCALE }}"|' \
-            -e 's|^KEYMAP=.*|KEYMAP="${{ env.KEYMAP }}"|' \
-            -e 's|^X11_KEYMAP=.*|X11_KEYMAP="${{ env.X11_KEYMAP }}"|' \
-            -e 's|^HOSTNAME=.*|HOSTNAME="${{ env.HOSTNAME }}"|' \
-            -e 's|^USERNAME=.*|USERNAME="${{ env.USERNAME }}"|' \
-            -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
-            airootfs/root/scripts/arch-install.sh
+            's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/customize_airootfs.sh"\]="0:0:755"|' \
+            profiledef.sh
 
-          find airootfs/root/scripts -name "*.sh" -exec chmod +x {} \;
-          chown -R root:root airootfs/root/scripts
+          sed -i \
+            's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/etc/calamares"\]="0:0:755"\n  \["/etc/calamares/packages.txt"\]="0:0:644"\n  \["/etc/calamares/settings.conf"\]="0:0:644"\n  \["/etc/calamares/scripts"\]="0:0:755"|' \
+            profiledef.sh
 
-          cp $GITHUB_WORKSPACE/packages.txt airootfs/root/
-          chown root:root airootfs/root/packages.txt
-
-          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/system"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"|' profiledef.sh
-          for script in $(find $GITHUB_WORKSPACE/scripts -name "*.sh" | sort); do
-            rel_path="${script#$GITHUB_WORKSPACE/}"
-            entry="/root/${rel_path}"
-            parent_entry="/root/$(dirname ${rel_path})"
-            sed -i "s|\[\"${parent_entry}\"\]=\"0:0:755\"|\[\"${parent_entry}\"\]=\"0:0:755\"\n  \[\"${entry}\"\]=\"0:0:755\"|" profiledef.sh
+          for script in $(find $GITHUB_WORKSPACE/calamares/scripts -name "*.sh" | sort); do
+            name=$(basename "$script")
+            sed -i "s|\[\"/etc/calamares/scripts\"\]=\"0:0:755\"|\[\"/etc/calamares/scripts\"\]=\"0:0:755\"\n  \[\"/etc/calamares/scripts/${name}\"\]=\"0:0:755\"|" profiledef.sh
           done
         working-directory: /root/${{ github.event.repository.name }}
+
       - name: Build ISO
         run: |
           mkarchiso -v -w /root/work -o /root/out .
         working-directory: /root/${{ github.event.repository.name }}
+
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:

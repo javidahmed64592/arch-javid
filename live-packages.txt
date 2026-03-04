@@ -1,0 +1,42 @@
+# Calamares graphical installer
+calamares
+python
+kcrash
+kconfig
+
+# Partioning backend for Calamares
+kpmcore
+
+# Network
+networkmanager
+network-manager-applet
+
+# Audio
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+
+# Display
+breeze
+breeze-gtk
+kde-cli-tools
+kde-gtk-config
+kscreen
+kwin
+plasma-desktop
+plasma-integration
+plasma-nm
+plasma-pa
+plasma-systemmonitor
+plasma-workspace
+polkit-kde-agent
+sddm
+xdg-desktop-portal-kde
+xdg-user-dirs
+xorg-xwayland
+
+# Applications
+konsole
+dolphin
+kate
