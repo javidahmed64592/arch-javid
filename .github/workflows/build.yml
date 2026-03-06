@@ -45,18 +45,14 @@ jobs:
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
       - name: Prepare build directory
         run: |
-          # Copy custom profiledef.sh with all file permissions
+          # Copy files to build directory
           cp $GITHUB_WORKSPACE/profiledef.sh .
-
-          # Copy live ISO package list
           cp $GITHUB_WORKSPACE/packages.x86_64 .
+          cp $GITHUB_WORKSPACE/packages.txt airootfs/root/
 
-          # Copy airootfs customization files for live environment
-          # (includes customize_airootfs.sh, sddm config, sudoers config)
           cp -r $GITHUB_WORKSPACE/airootfs/* airootfs/
           chmod +x airootfs/root/customize_airootfs.sh
 
-          # Copy installation scripts to airootfs/root for installer
           cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
 
           # Inject build-time variables into installer script
@@ -71,13 +67,8 @@ jobs:
             -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
             airootfs/root/scripts/arch-install.sh
 
-          # Make all scripts executable
           find airootfs/root/scripts -name "*.sh" -exec chmod +x {} \;
 
-          # Copy installer package list to airootfs/root
-          cp $GITHUB_WORKSPACE/packages.txt airootfs/root/
-
-          # Set proper ownership
           chown -R root:root airootfs/root/scripts
           chown root:root airootfs/root/packages.txt
           chown root:root airootfs/root/customize_airootfs.sh
