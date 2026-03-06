@@ -2,13 +2,13 @@
 
 ## Project Goal
 
-Build a customised Arch Linux installation ISO targeting an Intel-based machine with:
+Build a customised Arch Linux installation ISO with a **live KDE Plasma desktop** and an **automated installer** targeting:
 
-- NVIDIA GPU (open-source DKMS drivers, DRM modesetting enabled for Wayland)
+- Intel CPU + NVIDIA GPU (nvidia-open-dkms, DRM modesetting enabled)
 - KDE Plasma desktop on Wayland
 - systemd-boot bootloader
-- UK locale, keyboard and timezone
-- Fully automated, hands-off installation from first boot
+- UK locale, keyboard, timezone
+- Fully automated installation from desktop icon or terminal
 
 ---
 
@@ -16,25 +16,19 @@ Build a customised Arch Linux installation ISO targeting an Intel-based machine 
 
 ```
 arch-javid/
-├── .github/
-│   └── workflows/
-│       └── build.yml          # GitHub Actions CI/CD — builds the ISO
-├── scripts/
-│   ├── arch-install.sh        # Main orchestrator; runs all sub-scripts in order
-│   ├── system/
-│   │   ├── partition.sh       # Create GPT table: EFI (FAT32) + root (Btrfs)
-│   │   ├── makefs.sh          # Format EFI as FAT32, root as Btrfs
-│   │   ├── mount.sh           # Mount root → /mnt, EFI → /mnt/boot
-│   │   ├── unmount.sh         # umount -R /mnt
-│   │   └── fstab.sh           # genfstab -U /mnt >> /mnt/etc/fstab
-│   └── chroot/
-│       ├── timezone.sh        # Symlink localtime, hwclock --systohc
-│       ├── locale.sh          # locale.gen, locale.conf, vconsole.conf, X11 keymap
-│       ├── services.sh        # Enable NetworkManager, plasmalogin; mkinitcpio -P
-│       ├── nvidia.sh          # modprobe.d rules, early initramfs NVIDIA modules
-│       ├── users.sh           # Root password, unprivileged user, wheel sudo
-│       └── bootloader.sh      # bootctl install, loader.conf, arch.conf entry
-└── packages.txt               # Full package list consumed by pacstrap
+├── .github/workflows/build.yml   # GitHub Actions: builds ISO
+├── airootfs/                     # Live ISO customization
+│   ├── etc/
+│   │   ├── sddm.conf.d/autologin.conf
+│   │   └── sudoers.d/liveuser
+│   └── root/customize_airootfs.sh
+├── scripts/                      # Installer scripts (embedded in ISO)
+│   ├── arch-install.sh           # Main installer orchestrator
+│   ├── system/                   # Pre-chroot: partition, makefs, mount, fstab
+│   └── chroot/                   # Post-chroot: timezone, locale, services, nvidia, users, bootloader
+├── profiledef.sh                 # Archiso profile + file permissions
+├── packages.x86_64               # Live ISO packages (must include mkinitcpio-archiso)
+└── packages.txt                  # Installed system packages
 ```
 
 ---
@@ -53,12 +47,9 @@ No swap partition — the Btrfs root handles memory pressure via zram/swapfile i
 ### Boot Stack
 
 - **Bootloader**: systemd-boot (`bootctl install`)
-- **Entry file**: `/boot/loader/entries/arch.conf`
-- **Required kernel parameters**:
-  ```
-  root=... rw quiet splash nvidia-drm.modeset=1 nvidia_drm.fbdev=1
-  ```
-- Intel microcode (`intel-ucode`) is loaded automatically by systemd-boot when the `.conf` entry includes `initrd /intel-ucode.img`.
+- **Entry**: `/boot/loader/entries/arch.conf`
+- **Initrd order**: `intel-ucode.img` (first), then `initramfs-linux.img`
+- **Kernel parameters**: `root=UUID=... rw nvidia-drm.modeset=1 nvidia_drm.fbdev=1 quiet splash`
 
 ### GPU / Display Stack
 
@@ -73,24 +64,28 @@ No swap partition — the Btrfs root handles memory pressure via zram/swapfile i
 
 ### Desktop Environment
 
-- **Session**: KDE Plasma (`plasma-meta`) on Wayland via `plasmalogin`
-- **Wayland compatibility bridge**: `xorg-xwayland`
+- **Installed system**: KDE Plasma (`plasma-meta`) on Wayland via `plasma-login-manager`
+- **Live ISO**: KDE Plasma components + SDDM (auto-login as `liveuser`)
+- **Wayland compatibility**: `xorg-xwayland`
 - **Audio**: Pipewire (`pipewire`, `pipewire-pulse`, `pipewire-alsa`, `wireplumber`)
-- **Networking**: NetworkManager (service enabled in `services.sh`)
+- **Network**: NetworkManager (enabled in `services.sh`)
 
-### Package Categories (`packages.txt`)
+### Package Lists
 
-| Category | Key packages                                                        |
-| -------- | ------------------------------------------------------------------- |
-| Base     | `base`, `linux`, `linux-headers`, `linux-firmware`, `sudo`, `nano`  |
-| CPU      | `intel-ucode`                                                       |
-| Network  | `networkmanager`                                                    |
-| Desktop  | `plasma-meta`, `plasmalogin`, `xorg-xwayland`                       |
-| KDE apps | `ark`, `dolphin`, `kate`, `konsole`, `mpv`, …                       |
-| Audio    | `pipewire`, `pipewire-pulse`, `pipewire-alsa`, `wireplumber`        |
-| NVIDIA   | `nvidia-open-dkms`, `nvidia-utils`, `nvidia-settings`               |
-| Vulkan   | `vulkan-icd-loader`, `lib32-vulkan-icd-loader`, `vulkan-tools`      |
-| 32-bit   | `lib32-mesa`, `lib32-glibc`, `lib32-gcc-libs`, `lib32-nvidia-utils` |
+**`packages.x86_64`** (Live ISO - used by mkarchiso):
+
+- Base: `base`, `linux`, `linux-firmware`, `sudo`
+- **Critical**: `archiso`, `mkinitcpio-archiso` (required for live boot)
+- Desktop: KDE Plasma components, `sddm`, `xorg-xwayland`
+- Tools: `parted`, `gparted`, `btrfs-progs`, `konsole`, `dolphin`
+
+**`packages.txt`** (Installed system - used by pacstrap):
+
+- Base: `base`, `linux`, `linux-headers`, `linux-firmware`, `intel-ucode`
+- Desktop: `plasma-meta`, `plasma-login-manager`, `xorg-xwayland`
+- NVIDIA: `nvidia-open-dkms`, `nvidia-utils`, `nvidia-settings`
+- Vulkan: `vulkan-icd-loader`, `lib32-vulkan-icd-loader`, `vulkan-tools`
+- Apps: `firefox`, `ark`, `dolphin`, `kate`, `konsole`, `mpv`, etc.
 
 ---
 
@@ -130,38 +125,41 @@ PASSWORD=password
 
 ---
 
-## Installation Script Logic (`arch-install.sh`)
+## Installation Script Logic
 
-All scripts use `set -euo pipefail`. The orchestrator:
+`arch-install.sh` orchestrates the full installation:
 
-1. Auto-detects the target disk with `lsblk`.
-2. Checks whether the disk already has partitions; skips partitioning if so.
-3. Calls `system/partition.sh` → `system/makefs.sh` → `system/mount.sh`.
-4. Enables the `multilib` repository in `/etc/pacman.conf` for 32-bit libs.
-5. Runs `pacstrap /mnt` with `packages.txt`.
-6. Calls `system/fstab.sh`.
-7. `arch-chroot`s into `/mnt` and executes each `chroot/*.sh` in order:
-   `timezone` → `locale` → `services` → `nvidia` → `users` → `bootloader`
-8. Calls `system/unmount.sh`.
+1. Auto-detect disk via `lsblk`; skip partitioning if partitions exist
+2. Call `system/partition.sh` → `makefs.sh` → `mount.sh`
+3. Enable `multilib` in `/etc/pacman.conf`
+4. Run `pacstrap /mnt` with packages from `packages.txt`
+5. Generate fstab via `system/fstab.sh`
+6. `arch-chroot` and run: `timezone.sh` → `locale.sh` → `services.sh` → `nvidia.sh` → `users.sh` → `bootloader.sh`
+7. Unmount via `system/unmount.sh`
+
+All scripts use `set -euo pipefail` and are parameterized via environment variables.
 
 ---
 
 ## Coding Conventions
 
-- All shell scripts **must** begin with `#!/usr/bin/env bash` and `set -euo pipefail`.
-- Scripts are parameterised exclusively via **environment variables** — no positional arguments.
-- Keep each script focused on a single responsibility (one script = one concern).
-- New packages go in `packages.txt`; keep entries grouped by category with a blank line between groups.
-- Kernel parameters that affect NVIDIA/Wayland (e.g. `nvidia-drm.modeset=1`) must appear in **both** `bootloader.sh` (the installed system entry) and the ISO's bootloader config templates patched in `build.yml`.
-- When adding a new modprobe option, add it to `nvidia.sh`; when adding a new kernel module that must load early, add it to the `MODULES` array manipulation in `nvidia.sh` and re-run `mkinitcpio`.
+- All shell scripts begin with `#!/bin/bash` and `set -euo pipefail`
+- Scripts use command-line arguments (e.g., `--disk`, `--efi-size`), not environment variables for parameters
+- `arch-install.sh` uses environment variables (injected at build time) and passes args to subscripts
+- Keep each script focused on a single responsibility
+- Live ISO packages → `packages.x86_64`; installed system packages → `packages.txt`
+- **Critical**: `packages.x86_64` must include `mkinitcpio-archiso` for live boot to work
+- Kernel params affecting NVIDIA/Wayland in `bootloader.sh` must include: `nvidia-drm.modeset=1 nvidia_drm.fbdev=1 quiet splash`
+- `bootloader.sh` must load `intel-ucode.img` before `initramfs-linux.img`
 
 ---
 
 ## Key Constraints
 
-- Target CPU is **Intel-only**: always include `intel-ucode` and its initrd line in the boot entry.
-- The NVIDIA driver is `nvidia-open-dkms` (not `nvidia` or `nvidia-open`); `linux-headers` is required as a build dependency.
-- systemd-boot requires a **FAT32 EFI partition mounted at `/boot`**; do not change the mount point.
-- The root filesystem is **Btrfs** — do not introduce ext4 or swap partitions.
-- Wayland is the **primary** display server; X11/Xwayland is only a compatibility layer.
-- `plasmalogin` (not `sddm`/`gdm`) is used as the display manager — ensure the correct service name is enabled.
+- **CPU**: Intel-only; `intel-ucode` must be loaded first in bootloader entry
+- **NVIDIA**: `nvidia-open-dkms` (requires `linux-headers`); early KMS via `MODULES` in mkinitcpio
+- **Bootloader**: systemd-boot with FAT32 EFI partition mounted at `/boot`
+- **Filesystem**: Btrfs root (no ext4/swap partitions)
+- **Display**: Wayland primary; `xorg-xwayland` for compatibility
+- **Display Manager**: Live ISO uses `sddm`; installed system uses `plasma-login-manager`
+- **Live boot**: `packages.x86_64` must include `mkinitcpio-archiso` or ISO won't boot
