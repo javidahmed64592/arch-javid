@@ -45,12 +45,18 @@ jobs:
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
       - name: Prepare build directory
         run: |
-          # Copy the customize script for live environment setup
-          cp $GITHUB_WORKSPACE/customize_airootfs.sh .
-          chmod +x customize_airootfs.sh
+          # Copy live ISO package list
+          cp $GITHUB_WORKSPACE/packages.x86_64 .
 
-          # Copy installation scripts to airootfs
+          # Copy airootfs customization files for live environment
+          # (includes customize_airootfs.sh, sddm config, sudoers config)
+          cp -r $GITHUB_WORKSPACE/airootfs/* airootfs/
+          chmod +x airootfs/root/customize_airootfs.sh
+
+          # Copy installation scripts to airootfs/root for installer
           cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
+
+          # Inject build-time variables into installer script
           sed -i \
             -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
             -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
@@ -62,13 +68,23 @@ jobs:
             -e 's|^PASSWORD=.*|PASSWORD="${{ env.PASSWORD }}"|' \
             airootfs/root/scripts/arch-install.sh
 
+          # Make all scripts executable
           find airootfs/root/scripts -name "*.sh" -exec chmod +x {} \;
-          chown -R root:root airootfs/root/scripts
 
+          # Copy installer package list to airootfs/root
           cp $GITHUB_WORKSPACE/packages.txt airootfs/root/
-          chown root:root airootfs/root/packages.txt
 
-          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/system"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"|' profiledef.sh
+          # Set proper ownership
+          chown -R root:root airootfs/root/scripts
+          chown root:root airootfs/root/packages.txt
+          chown root:root airootfs/root/customize_airootfs.sh
+          chown root:root airootfs/etc/sddm.conf.d/autologin.conf
+          chown root:root airootfs/etc/sudoers.d/liveuser
+
+          # Update profiledef.sh with file permissions
+          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/customize_airootfs.sh"\]="0:0:755"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/system"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"\n  \["/etc/sddm.conf.d"\]="0:0:755"\n  \["/etc/sddm.conf.d/autologin.conf"\]="0:0:644"\n  \["/etc/sudoers.d"\]="0:0:750"\n  \["/etc/sudoers.d/liveuser"\]="0:0:440"|' profiledef.sh
+
+          # Add individual script permissions
           for script in $(find $GITHUB_WORKSPACE/scripts -name "*.sh" | sort); do
             rel_path="${script#$GITHUB_WORKSPACE/}"
             entry="/root/${rel_path}"
