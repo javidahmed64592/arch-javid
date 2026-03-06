@@ -8,6 +8,7 @@ vim
 
 # Archiso essential packages
 archiso
+mkinitcpio-archiso
 mtools
 squashfs-tools
 
