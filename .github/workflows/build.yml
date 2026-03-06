@@ -45,6 +45,9 @@ jobs:
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
       - name: Prepare build directory
         run: |
+          # Copy custom profiledef.sh with all file permissions
+          cp $GITHUB_WORKSPACE/profiledef.sh .
+
           # Copy live ISO package list
           cp $GITHUB_WORKSPACE/packages.x86_64 .
 
@@ -80,17 +83,6 @@ jobs:
           chown root:root airootfs/root/customize_airootfs.sh
           chown root:root airootfs/etc/sddm.conf.d/autologin.conf
           chown root:root airootfs/etc/sudoers.d/liveuser
-
-          # Update profiledef.sh with file permissions
-          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/customize_airootfs.sh"\]="0:0:755"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/system"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"\n  \["/etc/sddm.conf.d"\]="0:0:755"\n  \["/etc/sddm.conf.d/autologin.conf"\]="0:0:644"\n  \["/etc/sudoers.d"\]="0:0:750"\n  \["/etc/sudoers.d/liveuser"\]="0:0:440"|' profiledef.sh
-
-          # Add individual script permissions
-          for script in $(find $GITHUB_WORKSPACE/scripts -name "*.sh" | sort); do
-            rel_path="${script#$GITHUB_WORKSPACE/}"
-            entry="/root/${rel_path}"
-            parent_entry="/root/$(dirname ${rel_path})"
-            sed -i "s|\[\"${parent_entry}\"\]=\"0:0:755\"|\[\"${parent_entry}\"\]=\"0:0:755\"\n  \[\"${entry}\"\]=\"0:0:755\"|" profiledef.sh
-          done
         working-directory: /root/${{ github.event.repository.name }}
       - name: Build ISO
         run: |
