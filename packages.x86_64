@@ -7,8 +7,6 @@ nano
 vim
 
 # Bootloader packages
-syslinux
-grub
 efibootmgr
 edk2-shell
 

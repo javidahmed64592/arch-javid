@@ -39,7 +39,7 @@ jobs:
             archlinux-pacman-
       - name: Install dependencies
         run: |
-          pacman -Sy --noconfirm archiso grub
+          pacman -Sy --noconfirm archiso
       - name: Copy Releng profile
         run: |
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
