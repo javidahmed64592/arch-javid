@@ -24,8 +24,9 @@ ROOT_UUID=$(blkid -s UUID -o value ${ROOT_PART})
 cat <<EOL > /boot/loader/entries/arch.conf
 title   Arch Javid
 linux   /vmlinuz-linux
+initrd  /intel-ucode.img
 initrd  /initramfs-linux.img
-options root=UUID=${ROOT_UUID} rw nvidia-drm.modeset=1 nvidia_drm.fbdev=1
+options root=UUID=${ROOT_UUID} rw nvidia-drm.modeset=1 nvidia_drm.fbdev=1 quiet splash
 EOL
 
 # Configure loader

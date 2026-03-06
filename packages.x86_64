@@ -1,11 +1,21 @@
-# Base packages
+# Base system packages for live ISO
 base
 linux
-linux-headers
 linux-firmware
 sudo
 nano
 vim
+
+# Archiso essential packages
+archiso
+mkinitcpio-archiso
+mtools
+squashfs-tools
+
+# Bootloader packages (UEFI only)
+efibootmgr
+edk2-shell
+memtest86+-efi
 
 # File systems
 btrfs-progs
@@ -23,19 +33,11 @@ lshw
 usbutils
 pciutils
 
-# CPU
-intel-ucode
-
 # Network
-dhcpcd
-firewalld
 networkmanager
 network-manager-applet
+dhcpcd
 wpa_supplicant
-
-# Bluetooth
-bluez
-bluez-utils
 
 # Audio
 pipewire
@@ -46,41 +48,29 @@ wireplumber
 # Display
 breeze
 breeze-gtk
-plasma-meta
-plasma-login-manager
 kde-cli-tools
 kde-gtk-config
+kscreen
+kwin
+plasma-desktop
+plasma-integration
+plasma-nm
+plasma-pa
+plasma-systemmonitor
+plasma-workspace
+polkit-kde-agent
+sddm
 xdg-desktop-portal-kde
 xdg-user-dirs
 xorg-xwayland
 
-# Fonts
-noto-fonts
-noto-fonts-emoji
-ttf-liberation
-
 # Applications
 ark
-avahi
-calligra
-discover
 dolphin
-dragon
-filelight
-firefox
-goverlay
 gwenview
-kcalc
-kclock
-kate
 konsole
-kwrite
-mpv
-partitionmanager
-plasma-pa
-plasma-systemmonitor
+kate
 spectacle
-systemsettings
 
 # Utilities
 bash-completion
@@ -95,19 +85,3 @@ unzip
 zip
 p7zip
 unrar
-
-# NVIDIA
-nvidia-open-dkms
-nvidia-utils
-nvidia-settings
-
-# Vulkan
-vulkan-icd-loader
-vulkan-tools
-lib32-vulkan-icd-loader
-lib32-nvidia-utils
-
-# 32-bit support
-lib32-mesa
-lib32-glibc
-lib32-gcc-libs

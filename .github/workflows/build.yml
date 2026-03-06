@@ -45,7 +45,17 @@ jobs:
           cp -r /usr/share/archiso/configs/releng/ /root/${{ github.event.repository.name }}
       - name: Prepare build directory
         run: |
+          # Copy files to build directory
+          cp $GITHUB_WORKSPACE/profiledef.sh .
+          cp $GITHUB_WORKSPACE/packages.x86_64 .
+          cp $GITHUB_WORKSPACE/packages.txt airootfs/root/
+
+          cp -r $GITHUB_WORKSPACE/airootfs/* airootfs/
+          chmod +x airootfs/root/customize_airootfs.sh
+
           cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
+
+          # Inject build-time variables into installer script
           sed -i \
             -e 's|^EFI_SIZE=.*|EFI_SIZE=${{ env.EFI_SIZE }}|' \
             -e 's|^LOCAL_ZONE=.*|LOCAL_ZONE="${{ env.LOCAL_ZONE }}"|' \
@@ -58,18 +68,12 @@ jobs:
             airootfs/root/scripts/arch-install.sh
 
           find airootfs/root/scripts -name "*.sh" -exec chmod +x {} \;
+
           chown -R root:root airootfs/root/scripts
-
-          cp $GITHUB_WORKSPACE/packages.txt airootfs/root/
           chown root:root airootfs/root/packages.txt
-
-          sed -i 's|\["/root"\]="0:0:750"|\["/root"\]="0:0:750"\n  \["/root/scripts"\]="0:0:755"\n  \["/root/scripts/system"\]="0:0:755"\n  \["/root/scripts/chroot"\]="0:0:755"\n  \["/root/packages.txt"\]="0:0:644"|' profiledef.sh
-          for script in $(find $GITHUB_WORKSPACE/scripts -name "*.sh" | sort); do
-            rel_path="${script#$GITHUB_WORKSPACE/}"
-            entry="/root/${rel_path}"
-            parent_entry="/root/$(dirname ${rel_path})"
-            sed -i "s|\[\"${parent_entry}\"\]=\"0:0:755\"|\[\"${parent_entry}\"\]=\"0:0:755\"\n  \[\"${entry}\"\]=\"0:0:755\"|" profiledef.sh
-          done
+          chown root:root airootfs/root/customize_airootfs.sh
+          chown root:root airootfs/etc/sddm.conf.d/autologin.conf
+          chown root:root airootfs/etc/sudoers.d/liveuser
         working-directory: /root/${{ github.event.repository.name }}
       - name: Build ISO
         run: |
