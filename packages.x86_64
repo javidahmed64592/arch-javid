@@ -6,6 +6,12 @@ sudo
 nano
 vim
 
+# Bootloader packages
+syslinux
+grub
+efibootmgr
+edk2-shell
+
 # File systems
 btrfs-progs
 dosfstools
