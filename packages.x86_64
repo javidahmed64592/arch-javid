@@ -79,6 +79,7 @@ man-pages
 git
 wget
 curl
+python-pip
 htop
 btop
 unzip

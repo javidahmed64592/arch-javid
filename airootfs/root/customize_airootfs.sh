@@ -10,10 +10,14 @@ usermod -aG wheel,video,audio,network,storage,optical,power liveuser
 systemctl enable NetworkManager
 systemctl enable sddm
 
+# Install Python installer from GitHub
+echo "Installing arch-javid-installer..."
+pip install --break-system-packages git+https://github.com/javidahmed64592/arch-javid-installer#egg=arch_javid_installer
+
 # Ensure proper ownership
 chown -R liveuser:liveuser /home/liveuser
 
-# Create a desktop entry for the installer (optional - can be run manually)
+# Create a desktop entry for the installer
 mkdir -p /home/liveuser/Desktop
 cat > /home/liveuser/Desktop/arch-installer.desktop << 'EOF'
 [Desktop Entry]
@@ -21,7 +25,7 @@ Type=Application
 Name=Arch Installer
 Comment=Install Arch Linux to disk
 Icon=system-software-install
-Exec=konsole -e sudo /root/scripts/arch-install.sh
+Exec=konsole -e sudo arch-javid-installer
 Terminal=false
 Categories=System;
 EOF

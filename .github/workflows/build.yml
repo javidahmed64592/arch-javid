@@ -40,8 +40,6 @@ jobs:
           cp -r $GITHUB_WORKSPACE/airootfs/* airootfs/
           chmod +x airootfs/root/customize_airootfs.sh
 
-          cp -r $GITHUB_WORKSPACE/scripts airootfs/root/
-
           chown root:root airootfs/root/packages.txt
           chown root:root airootfs/root/customize_airootfs.sh
           chown root:root airootfs/etc/sddm.conf.d/autologin.conf
